@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <string_view>
 
 #include <meojson/json.hpp>
 
@@ -12,6 +13,7 @@
 #include "Resource/ResourceMgr.h"
 #include "Tasker/RuntimeCache.h"
 #include "Tasker/Tasker.h"
+#include "Vision/OCRer.h"
 
 MAA_TASK_NS_BEGIN
 
@@ -24,7 +26,7 @@ public:
 public:
     virtual bool run() { return true; }
 
-    virtual void post_stop() {}
+    virtual void post_stop() { }
 
 public:
     bool override_pipeline(const json::value& pipeline_override);
@@ -37,12 +39,24 @@ protected:
     MAA_RES_NS::ResourceMgr* resource();
     MAA_CTRL_NS::ControllerAgent* controller();
 
-    RecoResult run_recognition(const cv::Mat& image, const PipelineData& data);
+    RecoResult run_recognition(
+        const cv::Mat& image,
+        const PipelineData& data,
+        std::optional<std::string> anchor_name = std::nullopt,
+        std::shared_ptr<MAA_VISION_NS::OCRCache> ocr_cache = nullptr);
     ActionResult run_action(const RecoResult& reco, const PipelineData& data);
     cv::Mat screencap();
     MaaNodeId generate_node_id();
     void set_node_detail(MaaNodeId node_id, NodeDetail detail);
     void set_task_detail(TaskDetail detail);
+
+    void wait_freezes(
+        const MAA_RES_NS::WaitFreezesParam& param,
+        const cv::Rect& box,
+        const std::string& name,
+        std::string_view phase,
+        const json::value& focus);
+    void sleep(std::chrono::milliseconds ms) const;
 
     bool debug_mode() const;
     void notify(std::string_view msg, const json::value detail);

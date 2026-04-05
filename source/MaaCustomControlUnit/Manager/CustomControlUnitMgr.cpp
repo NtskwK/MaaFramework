@@ -220,4 +220,82 @@ bool CustomControlUnitMgr::scroll(int dx, int dy)
     return controller_->scroll(dx, dy, controller_arg_);
 }
 
+bool CustomControlUnitMgr::relative_move(int dx, int dy)
+{
+    if (!controller_ || !controller_->relative_move) {
+        LogError << "controller_ or controller_->relative_move is nullptr";
+        return false;
+    }
+
+    LogFunc << VAR_VOIDP(controller_) << VAR_VOIDP(controller_->relative_move) << VAR(dx) << VAR(dy);
+    return controller_->relative_move(dx, dy, controller_arg_);
+}
+
+bool CustomControlUnitMgr::shell(const std::string& cmd, std::string& output, std::chrono::milliseconds timeout)
+{
+    if (!controller_ || !controller_->shell) {
+        LogError << "controller_ or controller_->shell is nullptr";
+        return false;
+    }
+
+    LogFunc << VAR_VOIDP(controller_) << VAR_VOIDP(controller_->shell) << VAR(cmd) << VAR(timeout.count());
+
+    StringBuffer buffer;
+    bool ret = controller_->shell(cmd.c_str(), timeout.count(), controller_arg_, &buffer);
+    if (!ret) {
+        LogError << "failed to shell" << VAR(ret);
+        return false;
+    }
+    output = buffer.get();
+
+    return true;
+}
+
+bool CustomControlUnitMgr::inactive()
+{
+    if (!controller_ || !controller_->inactive) {
+        LogTrace << "inactive callback not provided, returning true";
+        return true;
+    }
+
+    LogFunc << VAR_VOIDP(controller_) << VAR_VOIDP(controller_->inactive);
+    return controller_->inactive(controller_arg_);
+}
+
+json::object CustomControlUnitMgr::get_info() const
+{
+    json::object info;
+    if (auto extra_info_opt = get_info_from_controller()) {
+        info = std::move(*extra_info_opt);
+    }
+    info["type"] = "custom";
+
+    return info;
+}
+
+std::optional<json::object> CustomControlUnitMgr::get_info_from_controller() const
+{
+    if (!controller_ || !controller_->get_info) {
+        LogTrace << "get_info callback not provided, treating as no extra info";
+        return std::nullopt;
+    }
+
+    StringBuffer buffer;
+    if (!controller_->get_info(controller_arg_, &buffer)) {
+        LogTrace << "get_info callback returned false, treating as no extra info";
+        return std::nullopt;
+    }
+
+    auto extra_info_opt = json::parse(buffer.get());
+    if (!extra_info_opt.has_value()) {
+        LogWarn << "failed to parse custom get_info result as JSON";
+        return std::nullopt;
+    }
+    if (!extra_info_opt->is_object()) {
+        LogWarn << "custom get_info result is not a JSON object";
+        return std::nullopt;
+    }
+    return extra_info_opt->as_object();
+}
+
 MAA_CTRL_UNIT_NS_END

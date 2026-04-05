@@ -46,7 +46,7 @@ declare global {
                 threshold?: MaybeArray<number, Mode>
                 order_by?: OrderByMap['TemplateMatch']
                 index?: number
-                method?: 1 | 3 | 5
+                method?: 10001 | 3 | 5
                 green_mask?: boolean
             },
             'template',
@@ -92,21 +92,18 @@ declare global {
                 connected?: boolean
             }
 
-        type RecognitionOCR<Mode> = RequiredIfStrict<
-            {
-                roi?: Rect | NodeName
-                roi_offset?: Rect
-                expected?: MaybeArray<string, Mode>
-                threshold?: MaybeArray<number, Mode>
-                replace?: MaybeArray<FixedArray<string, 2>, Mode>
-                order_by?: OrderByMap['OCR']
-                index?: number
-                only_rec?: boolean
-                model?: string
-            },
-            'expected',
-            Mode
-        >
+        type RecognitionOCR<Mode> = {
+            roi?: Rect | NodeName
+            roi_offset?: Rect
+            expected?: MaybeArray<string, Mode>
+            threshold?: MaybeArray<number, Mode>
+            replace?: MaybeArray<FixedArray<string, 2>, Mode>
+            order_by?: OrderByMap['OCR']
+            index?: number
+            only_rec?: boolean
+            model?: string
+            color_filter?: string
+        }
 
         type RecognitionNeuralNetworkClassify<Mode> = RequiredIfStrict<
             {
@@ -150,7 +147,7 @@ declare global {
 
         type RecognitionAnd<Mode> = RequiredIfStrict<
             {
-                all_of?: Recognition<Mode>['recognition'][]
+                all_of?: (string | Recognition<Mode>['recognition'])[]
                 box_index?: number
             },
             'all_of',
@@ -159,7 +156,7 @@ declare global {
 
         type RecognitionOr<Mode> = RequiredIfStrict<
             {
-                any_of: Recognition<Mode>['recognition'][]
+                any_of: (string | Recognition<Mode>['recognition'])[]
             },
             'any_of',
             Mode
@@ -352,6 +349,12 @@ declare global {
             Mode
         >
 
+        type ActionScreencap = {
+            filename?: string
+            format?: 'png' | 'jpg' | 'jpeg'
+            quality?: number
+        }
+
         type ActionCustom<Mode> = RequiredIfStrict<
             {
                 target?: true | NodeName | Rect
@@ -398,6 +401,7 @@ declare global {
             | 'StopTask'
             | 'Command'
             | 'Shell'
+            | 'Screencap'
             | 'Custom'
 
         type Action<Mode> =
@@ -430,6 +434,7 @@ declare global {
             | MixAct<'StopTask', ActionStopTask, Mode>
             | MixAct<'Command', ActionCommand<Mode>, Mode>
             | MixAct<'Shell', ActionShell<Mode>, Mode>
+            | MixAct<'Screencap', ActionScreencap, Mode>
             | MixAct<'Custom', ActionCustom<Mode>, Mode>
 
         type NodeAttr<Mode> = RequiredIfStrict<
@@ -457,7 +462,7 @@ declare global {
             rate_limit?: number
             timeout?: number
             on_error?: MaybeArray<RemoveIfDump<NodeName, Mode> | NodeAttr<Mode>, Mode>
-            anchor?: MaybeArray<NodeName, Mode>
+            anchor?: RemoveIfDump<NodeName | NodeName[], Mode> | Record<NodeName, NodeName>
             inverse?: boolean
             enabled?: boolean
             max_hit?: number
@@ -475,11 +480,12 @@ declare global {
         type Task = Recognition<ModeFragment> & Action<ModeFragment> & General<ModeFragment>
         type StrictTask = Recognition<ModeStrict> & Action<ModeStrict> & General<ModeStrict>
 
-        type RecursiveRequired<T> = T extends Record<string, unknown>
-            ? {
-                  [key in keyof T]: NonNullable<RecursiveRequired<T[key]>>
-              }
-            : T
+        type RecursiveRequired<T> =
+            T extends Record<string, unknown>
+                ? {
+                      [key in keyof T]: NonNullable<RecursiveRequired<T[key]>>
+                  }
+                : T
 
         type DumpTask = RecursiveRequired<
             Recognition<ModeDump> & Action<ModeDump> & General<ModeDump>

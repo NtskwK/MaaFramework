@@ -250,8 +250,8 @@ bool PipelineParser::parse_node(
         return false;
     }
 
-    if (!get_and_check_value_or_array(input, "anchor", data.anchor, default_value.anchor)) {
-        LogError << "failed to get_and_check_value_or_array anchor" << VAR(input);
+    if (!parse_anchor(input, "anchor", name, data.anchor, default_value.anchor)) {
+        LogError << "failed to parse_anchor anchor" << VAR(input);
         return false;
     }
 
@@ -347,7 +347,7 @@ bool PipelineParser::parse_recognition(
     json::value param_input = input;
 
     if (auto reco_opt = input.find("recognition"); reco_opt && reco_opt->is_object()) {
-        param_input = reco_opt->get("param", json::object());
+        param_input = reco_opt->get("param", *reco_opt);
         reco_type_name = reco_opt->get("type", kDefaultRecognitionFlag);
     }
     else if (!get_and_check_value(input, "recognition", reco_type_name, kDefaultRecognitionFlag)) {
@@ -710,6 +710,11 @@ bool PipelineParser::parse_ocrer_param(
         output.replace = default_value.replace;
     }
 
+    if (!get_and_check_value(input, "color_filter", output.color_filter, default_value.color_filter)) {
+        LogError << "failed to get_and_check_value color_filter" << VAR(input);
+        return false;
+    }
+
     return true;
 }
 
@@ -1017,7 +1022,7 @@ bool PipelineParser::parse_action(
     json::value param_input = input;
 
     if (auto reco_opt = input.find("action"); reco_opt && reco_opt->is_object()) {
-        param_input = reco_opt->get("param", json::object());
+        param_input = reco_opt->get("param", *reco_opt);
         act_type_name = reco_opt->get("type", kDefaultActionFlag);
     }
     else if (!get_and_check_value(param_input, "action", act_type_name, kDefaultActionFlag)) {
@@ -1151,7 +1156,7 @@ bool PipelineParser::parse_action(
     } break;
 
     case Type::StopTask:
-        out_param = {};
+        out_param = { };
         return true;
 
     case Type::Command: {
@@ -1167,6 +1172,15 @@ bool PipelineParser::parse_action(
         auto default_param = default_mgr.get_action_param<ShellParam>(Type::Shell);
         out_param = default_param;
         return parse_shell(param_input, std::get<ShellParam>(out_param), same_type ? std::get<ShellParam>(parent_param) : default_param);
+    } break;
+
+    case Type::Screencap: {
+        auto default_param = default_mgr.get_action_param<ScreencapParam>(Type::Screencap);
+        out_param = default_param;
+        return parse_screencap(
+            param_input,
+            std::get<ScreencapParam>(out_param),
+            same_type ? std::get<ScreencapParam>(parent_param) : default_param);
     } break;
 
     case Type::Custom: {
@@ -1436,8 +1450,8 @@ bool PipelineParser::parse_shell(const json::value& input, Action::ShellParam& o
         return false;
     }
 
-    if (!get_and_check_value(input, "timeout", output.timeout, default_value.timeout)) {
-        LogError << "failed to get_and_check_value timeout" << VAR(input);
+    if (!get_and_check_value(input, "shell_timeout", output.shell_timeout, default_value.shell_timeout)) {
+        LogError << "failed to get_and_check_value shell_timeout" << VAR(input);
         return false;
     }
 
@@ -1464,6 +1478,37 @@ bool PipelineParser::parse_command_param(const json::value& input, Action::Comma
     return true;
 }
 
+bool PipelineParser::parse_screencap(const json::value& input, Action::ScreencapParam& output, const Action::ScreencapParam& default_value)
+{
+    if (!get_and_check_value(input, "filename", output.filename, default_value.filename)) {
+        LogError << "failed to get_and_check_value filename" << VAR(input);
+        return false;
+    }
+
+    if (!get_and_check_value(input, "format", output.format, default_value.format)) {
+        LogError << "failed to get_and_check_value format" << VAR(input);
+        return false;
+    }
+
+    static const std::unordered_set<std::string> kValidFormats = { "png", "jpg", "jpeg" };
+    if (kValidFormats.find(output.format) == kValidFormats.end()) {
+        LogError << "invalid screencap format, expected png|jpg|jpeg" << VAR(output.format) << VAR(input);
+        return false;
+    }
+
+    if (!get_and_check_value(input, "quality", output.quality, default_value.quality)) {
+        LogError << "failed to get_and_check_value quality" << VAR(input);
+        return false;
+    }
+
+    if (output.quality < 0 || output.quality > 100) {
+        LogWarn << "screencap quality out of range [0, 100], clamping" << VAR(output.quality);
+        output.quality = std::clamp(output.quality, 0, 100);
+    }
+
+    return true;
+}
+
 bool PipelineParser::parse_custom_action_param(
     const json::value& input,
     Action::CustomParam& output,
@@ -1484,6 +1529,58 @@ bool PipelineParser::parse_custom_action_param(
     return true;
 }
 
+bool PipelineParser::parse_wait_freezes_value(const json::value& input, WaitFreezesParam& output, const WaitFreezesParam& default_value)
+{
+    if (input.is_number()) {
+        output = default_value;
+        output.time = std::chrono::milliseconds(input.as_unsigned());
+        return true;
+    }
+
+    if (!input.is_object()) {
+        LogError << "invalid wait_freezes_param, expected number or object" << VAR(input);
+        return false;
+    }
+
+    auto time = default_value.time.count();
+    if (!get_and_check_value(input, "time", time, time)) {
+        LogError << "failed to parse_wait_freezes_value time" << VAR(input);
+        return false;
+    }
+    output.time = std::chrono::milliseconds(time);
+
+    if (!parse_action_target(input, "target", output.target, default_value.target)) {
+        LogError << "failed to parse_wait_freezes_value parse_action_target" << VAR(input);
+        return false;
+    }
+
+    if (!get_and_check_value(input, "threshold", output.threshold, default_value.threshold)) {
+        LogError << "failed to parse_wait_freezes_value threshold" << VAR(input);
+        return false;
+    }
+
+    if (!get_and_check_value(input, "method", output.method, default_value.method)) {
+        LogError << "failed to parse_wait_freezes_value method" << VAR(input);
+        return false;
+    }
+
+    auto rate_limit = default_value.rate_limit.count();
+    if (!get_and_check_value(input, "rate_limit", rate_limit, rate_limit)) {
+        LogError << "failed to parse_wait_freezes_value rate_limit" << VAR(input);
+        return false;
+    }
+    output.rate_limit = std::chrono::milliseconds(rate_limit);
+
+    auto timeout = default_value.timeout.count();
+    if (!get_and_check_value(input, "timeout", timeout, timeout)) {
+        LogError << "failed to parse_wait_freezes_value timeout" << VAR(input);
+        return false;
+    }
+    output.timeout = std::chrono::milliseconds(timeout);
+
+    return true;
+}
+
 bool PipelineParser::parse_wait_freezes_param(
     const json::value& input,
     const std::string& key,
@@ -1496,56 +1593,7 @@ bool PipelineParser::parse_wait_freezes_param(
         return true;
     }
 
-    const auto& field = *opt;
-
-    if (field.is_number()) {
-        output = default_value;
-        output.time = std::chrono::milliseconds(field.as_unsigned());
-        return true;
-    }
-    else if (field.is_object()) {
-        auto time = default_value.time.count();
-        if (!get_and_check_value(field, "time", time, time)) {
-            LogError << "failed to parse_wait_freezes_param time" << VAR(field);
-            return false;
-        }
-        output.time = std::chrono::milliseconds(time);
-
-        if (!parse_action_target(field, "target", output.target, default_value.target)) {
-            LogError << "failed to parse_wait_freezes_param parse_action_target" << VAR(field);
-            return false;
-        }
-
-        if (!get_and_check_value(field, "threshold", output.threshold, default_value.threshold)) {
-            LogError << "failed to parse_wait_freezes_param threshold" << VAR(field);
-            return false;
-        }
-
-        if (!get_and_check_value(field, "method", output.method, default_value.method)) {
-            LogError << "failed to parse_wait_freezes_param method" << VAR(field);
-            return false;
-        }
-
-        auto rate_limit = default_value.rate_limit.count();
-        if (!get_and_check_value(field, "rate_limit", rate_limit, rate_limit)) {
-            LogError << "failed to parse_wait_freezes_param rate_limit" << VAR(field);
-            return false;
-        }
-        output.rate_limit = std::chrono::milliseconds(rate_limit);
-
-        auto timeout = default_value.timeout.count();
-        if (!get_and_check_value(field, "timeout", timeout, timeout)) {
-            LogError << "failed to parse_wait_freezes_param timeout" << VAR(field);
-            return false;
-        }
-        output.timeout = std::chrono::milliseconds(timeout);
-
-        return true;
-    }
-    else {
-        LogError << "invalid wait_freezes_param" << VAR(field);
-        return false;
-    }
+    return parse_wait_freezes_value(*opt, output, default_value);
 }
 
 bool PipelineParser::parse_next(
@@ -1611,7 +1659,7 @@ bool PipelineParser::parse_rect(const json::value& input_rect, cv::Rect& output)
         rect_vec.emplace_back(r.as_integer());
     }
     if (rect_vec.size() == 2) {
-        output = cv::Rect(rect_vec[0], rect_vec[1], 0, 0);
+        output = cv::Rect(rect_vec[0], rect_vec[1], 1, 1);
     }
     else if (rect_vec.size() == 4) {
         output = cv::Rect(rect_vec[0], rect_vec[1], rect_vec[2], rect_vec[3]);
@@ -1632,12 +1680,17 @@ bool PipelineParser::parse_target_variant(const json::value& input_target, Targe
         output.type = Target::Type::Self;
     }
     else if (input_target.is_string()) {
-        output.type = Target::Type::PreTask;
-        output.param = input_target.as_string();
+        NodeAttr parsed;
+        if (!parse_node_string_in_next(input_target.as_string(), parsed)) {
+            LogError << "failed to parse target string" << VAR(input_target);
+            return false;
+        }
+        output.type = parsed.anchor ? Target::Type::Anchor : Target::Type::PreTask;
+        output.param = parsed.name;
     }
     else if (input_target.is_array()) {
         output.type = Target::Type::Region;
-        cv::Rect rect {};
+        cv::Rect rect { };
         if (!parse_rect(input_target, rect)) {
             LogError << "Target::Type::Region failed to parse_rect" << VAR(input_target);
             return false;
@@ -1904,21 +1957,72 @@ bool PipelineParser::parse_sub_recognition(
     using namespace Recognition;
     using namespace MAA_VISION_NS;
 
-    Type parent_type = Type::DirectHit;
-    Param parent_param = DirectHitParam {};
+    // If input is a string, treat it as a node name reference
+    if (input.is_string()) {
+        output = input.as_string();
+        return true;
+    }
 
-    if (!parse_recognition(input, output.type, output.param, parent_type, parent_param, default_mgr)) {
+    // Otherwise, parse as inline sub-recognition
+    InlineSubRecognition inline_reco;
+
+    Type parent_type = Type::DirectHit;
+    Param parent_param = DirectHitParam { };
+
+    if (!parse_recognition(input, inline_reco.type, inline_reco.param, parent_type, parent_param, default_mgr)) {
         return false;
     }
 
-    if (!get_and_check_value(input, "sub_name", output.sub_name, std::string {})) {
+    if (!get_and_check_value(input, "sub_name", inline_reco.sub_name, std::string { })) {
         LogError << "failed to get_and_check_value sub_name" << VAR(input);
         return false;
     }
-    if (output.sub_name.empty()) {
-        output.sub_name = Recognition::kTypeNameMap.at(output.type);
+    if (inline_reco.sub_name.empty()) {
+        inline_reco.sub_name = Recognition::kTypeNameMap.at(inline_reco.type);
     }
 
+    output = std::move(inline_reco);
+    return true;
+}
+
+bool PipelineParser::parse_anchor(
+    const json::value& input,
+    const std::string& key,
+    const std::string& node_name,
+    std::map<std::string, std::string>& output,
+    const std::map<std::string, std::string>& default_value)
+{
+    auto opt = input.find(key);
+    if (!opt) {
+        output = default_value;
+        return true;
+    }
+    output = { };
+    if (opt->is_string()) {
+        output[opt->as_string()] = node_name;
+    }
+    else if (opt->is_array()) {
+        for (const auto& item : opt->as_array()) {
+            if (!item.is_string()) {
+                LogError << "type error" << VAR(key) << VAR(input);
+                return false;
+            }
+            output[item.as_string()] = node_name;
+        }
+    }
+    else if (opt->is_object()) {
+        for (const auto& [prop, item] : opt->as_object()) {
+            if (!item.is_string()) {
+                LogError << "type error" << VAR(key) << VAR(input);
+                return false;
+            }
+            output[prop] = item.as_string();
+        }
+    }
+    else {
+        LogError << "type error" << VAR(key) << VAR(input);
+        return false;
+    }
     return true;
 }
 

@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <limits>
+#include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -49,13 +50,16 @@ using Param = std::variant<
     std::shared_ptr<OrParam>,
     MAA_VISION_NS::CustomRecognitionParam>;
 
-// Sub-recognition element for Multiple recognition
-struct SubRecognition
+// Inline sub-recognition with explicit type and params
+struct InlineSubRecognition
 {
     std::string sub_name;
     Type type = Type::Invalid;
     Param param;
 };
+
+// Sub-recognition element: either a node name (string) or inline recognition
+using SubRecognition = std::variant<std::string, InlineSubRecognition>;
 
 // And recognition parameter (logical AND - all must match)
 struct AndParam
@@ -135,6 +139,7 @@ enum class Type
     StopTask,
     Command,
     Shell,
+    Screencap,
     Custom,
 };
 
@@ -159,7 +164,7 @@ struct LongPressParam
 struct SwipeParam
 {
     Target begin;
-    std::vector<TargetObj> end = { {} };
+    std::vector<TargetObj> end = { { } };
     std::vector<cv::Rect> end_offset;
     std::vector<uint> end_hold;
     std::vector<uint> duration = { 200 };
@@ -224,7 +229,7 @@ struct ScrollParam
 struct ShellParam
 {
     std::string cmd;
-    int64_t timeout = 20000;
+    int64_t shell_timeout = 20000;
 };
 
 struct CommandParam
@@ -232,6 +237,13 @@ struct CommandParam
     std::string exec;
     std::vector<std::string> args;
     bool detach = false;
+};
+
+struct ScreencapParam
+{
+    std::string filename;
+    std::string format = "png";
+    int quality = 100;
 };
 
 struct CustomParam
@@ -257,6 +269,7 @@ using Param = std::variant<
     ScrollParam,
     ShellParam,
     CommandParam,
+    ScreencapParam,
     CustomParam>;
 
 inline static const std::unordered_map<std::string, Type> kTypeMap = {
@@ -296,6 +309,8 @@ inline static const std::unordered_map<std::string, Type> kTypeMap = {
     { "scroll", Type::Scroll },
     { "Shell", Type::Shell },
     { "shell", Type::Shell },
+    { "Screencap", Type::Screencap },
+    { "screencap", Type::Screencap },
     { "Command", Type::Command },
     { "command", Type::Command },
     { "Custom", Type::Custom },
@@ -316,7 +331,8 @@ inline static const std::unordered_map<Type, std::string> kTypeNameMap = {
     { Type::StopApp, "StopApp" },       { Type::KeyDown, "KeyDown" },
     { Type::KeyUp, "KeyUp" },           { Type::Scroll, "Scroll" },
     { Type::StopTask, "StopTask" },     { Type::Command, "Command" },
-    { Type::Shell, "Shell" },           { Type::Custom, "Custom" },
+    { Type::Shell, "Shell" },           { Type::Screencap, "Screencap" },
+    { Type::Custom, "Custom" },
 };
 } // namespace Action
 
@@ -351,7 +367,7 @@ struct PipelineData
     bool enabled = true;
 
     Recognition::Type reco_type = Recognition::Type::DirectHit;
-    Recognition::Param reco_param = MAA_VISION_NS::DirectHitParam {};
+    Recognition::Param reco_param = MAA_VISION_NS::DirectHitParam { };
     bool inverse = false;
 
     Action::Type action_type = Action::Type::DoNothing;
@@ -359,7 +375,7 @@ struct PipelineData
 
     std::vector<NodeAttr> next;
     std::vector<NodeAttr> on_error;
-    std::vector<std::string> anchor;
+    std::map<std::string, std::string> anchor;
     std::chrono::milliseconds rate_limit = std::chrono::milliseconds(1000);
     std::chrono::milliseconds reco_timeout = std::chrono::milliseconds(20 * 1000);
 

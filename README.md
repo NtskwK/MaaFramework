@@ -29,7 +29,7 @@ _✨ 基于图像识别的自动化黑盒测试框架 ✨_
   <a href="https://crates.io/crates/maa-framework"><img alt="rust crate" src="https://img.shields.io/badge/Rust-crate-orange?logo=rust" /></a>
   <a href="https://mirrorchyan.com/zh/projects?source=maafw-badge" target="_blank"><img alt="mirrorc" src="./docs/static/mirrorc-zh.svg"></a>
   <br>
-  <a href="https://maafw.xyz/" target="_blank"><img alt="website" src="./docs/static/maafw.svg"></a>
+  <a href="https://maafw.com/" target="_blank"><img alt="website" src="./docs/static/maafw.svg"></a>
   <a href="https://deepwiki.com/MaaXYZ/MaaFramework" target="_blank"><img alt="deepwiki" src="https://deepwiki.com/badge.svg"></a>
 </p>
 
@@ -48,7 +48,7 @@ _✨ 基于图像识别的自动化黑盒测试框架 ✨_
 ## 即刻开始
 
 > [!TIP]
-> 访问我们的 [官网](https://maafw.xyz/) 以获得更优秀的文档阅读体验。  
+> 访问我们的 [官网](https://maafw.com/) 以获得更优秀的文档阅读体验。  
 > 找不到相关文档？试试问 [AI](https://deepwiki.com/MaaXYZ/MaaFramework) ！
 
 - [快速开始](docs/zh_cn/1.1-快速开始.md) & [术语解释](docs/zh_cn/1.2-术语解释.md)
@@ -89,11 +89,20 @@ _✨ 基于图像识别的自动化黑盒测试框架 ✨_
 - [MaaInspector](https://github.com/TanyaShue/MaaInspector) ![Typescript](https://img.shields.io/badge/Typescript-8A2BE2?logo=typescript) ![activity](https://img.shields.io/github/commit-activity/m/TanyaShue/MaaInspector?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/TanyaShue/MaaInspector?style=social)  
     基于 vue-flow 的可视化编辑器，集成节点预览,编辑,调试于一体的简单好用的 MaaFramework Pipeline 编辑器
 
-- [MaaMCP](https://github.com/MaaXYZ/MaaMCP) ![python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white) ![license](https://img.shields.io/github/license/MaaXYZ/MaaMCP) ![activity](https://img.shields.io/github/commit-activity/m/MaaXYZ/MaaMCP?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/MaaXYZ/MaaMCP?style=social) [![pypi](https://img.shields.io/badge/PyPI-3776AB?logo=pypi&logoColor=white)](https://pypi.org/project/maa-mcp)  
-    基于 MaaFramework 的 MCP 服务器 为 AI 助手提供 Android 设备和 Windows 桌面自动化能力
+- [MaaLogAnalyzer](https://github.com/MaaXYZ/MaaLogAnalyzer) ![Typescript](https://img.shields.io/badge/Typescript-8A2BE2?logo=typescript) ![license](https://img.shields.io/github/license/Windsland52/MAALogAnalyzer) ![activity](https://img.shields.io/github/commit-activity/m/Windsland52/MAALogAnalyzer?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/Windsland52/MAALogAnalyzer?style=social) [![vscode](https://img.shields.io/badge/VSCode-0f81c2?style=plastic&logo=data:image/svg+xml)](https://marketplace.visualstudio.com/items?itemName=Windsland52.maa-log-analyzer) [![website](https://img.shields.io/badge/https://mla.maafw.com-%234285F4)](https://mla.maafw.com/)  
+    MaaFramework 日志分析工具，提供用户友好的多视角可视化任务执行流程分析
 
-- [MaaLogAnalyzer](https://github.com/Windsland52/MAALogAnalyzer) ![Typescript](https://img.shields.io/badge/Typescript-8A2BE2?logo=typescript) ![license](https://img.shields.io/github/license/Windsland52/MAALogAnalyzer) ![activity](https://img.shields.io/github/commit-activity/m/Windsland52/MAALogAnalyzer?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/Windsland52/MAALogAnalyzer?style=social) [![website](https://img.shields.io/badge/https://maaloganalyzer.maafw.xyz-%234285F4)](https://maaloganalyzer.maafw.xyz/)  
-    MaaFramework 用户日志分析工具，支持可视化任务执行流程和全文搜索
+- [MaaLogs](https://github.com/amiliyaai/MaaLogs) ![TypeScript](https://img.shields.io/badge/Typescript-8A2BE2?logo=typescript) ![license](https://img.shields.io/github/license/amiliyaai/MaaLogs) ![activity](https://img.shields.io/github/commit-activity/m/amiliyaai/MaaLogs?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/amiliyaai/MaaLogs?style=social) [![website](https://img.shields.io/badge/https://maalogs.maafw.com-%234285F4)](https://maalogs.maafw.com/)  
+    MaaFramework 日志分析工具，支持多项目日志解析、可视化任务流程和 AI 智能分析
+
+- [prettier-plugin-maafw-sort](https://github.com/neko-para/maa-support-extension/tree/main/pkgs/prettier-plugin-maafw-sort) ![TypeScript](https://img.shields.io/badge/Typescript-8A2BE2?logo=typescript) ![license](https://img.shields.io/github/license/neko-para/maa-support-extension) ![activity](https://img.shields.io/github/commit-activity/m/neko-para/maa-support-extension?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/neko-para/maa-support-extension?style=social) [![npm](https://img.shields.io/badge/npm-CB3837?logo=npm)](https://www.npmjs.com/package/@nekosu/prettier-plugin-maafw-sort)  
+    Prettier 插件，按照生命周期顺序自动排序 pipeline 字段
+
+- [Auto Green Background](https://github.com/Joe-Bao/Auto-Green-Background) ![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white) ![Rust](https://img.shields.io/badge/Rust-000000?logo=rust) ![activity](https://img.shields.io/github/commit-activity/m/Joe-Bao/Auto-Green-Background?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/Joe-Bao/Auto-Green-Background?style=social) [![release](https://img.shields.io/github/v/release/Joe-Bao/Auto-Green-Background?display_name=tag)](https://github.com/Joe-Bao/Auto-Green-Background/releases)  
+    自动涂绿幕工具（Python/OpenCV，适用于TemplateMatch），支持多算法分割、固定画布输出、实时预览与便携版开箱即用打包。
+
+- [maafw-cli](https://github.com/otowa-kotori/maafw-cli) ![python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white) ![license](https://img.shields.io/github/license/otowa-kotori/maafw-cli) ![activity](https://img.shields.io/github/commit-activity/m/otowa-kotori/maafw-cli?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/otowa-kotori/maafw-cli?style=social) [![pypi](https://img.shields.io/badge/PyPI-3776AB?logo=pypi&logoColor=white)](https://pypi.org/project/maafw-cli/)  
+    用于AI Agent的 MaaFramework 命令行界面。
 
 ### 应用程序
 
@@ -172,6 +181,12 @@ _✨ 基于图像识别的自动化黑盒测试框架 ✨_
 
 - [MaaLYSK](https://github.com/Witty36/MaaLYSK) ![Pipeline](https://img.shields.io/badge/Pipeline-%23876f69?logo=paddypower&logoColor=%23FFFFFF) ![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white) ![license](https://img.shields.io/github/license/Witty36/MaaLYSK) ![activity](https://img.shields.io/github/commit-activity/m/Witty36/MaaLYSK?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/Witty36/MaaLYSK?style=social) [![mirrorc](./docs/static/mirrorc-zh.svg)](https://mirrorchyan.com/zh/projects?rid=MaaLYSK) [![website](https://img.shields.io/badge/https://maalysk.top-%234285F4)](https://maalysk.top)  
     恋与深空 小助手。使用图像技术 + 模拟控制，解放双手！由 MaaFramework 强力驱动！
+
+- [MaaEnd](https://github.com/MaaEnd/MaaEnd) ![Pipeline](https://img.shields.io/badge/Pipeline-%23876f69?logo=paddypower&logoColor=%23FFFFFF) ![Go](https://img.shields.io/badge/Go-007d9c?logo=go) ![license](https://img.shields.io/github/license/MaaEnd/MaaEnd) ![activity](https://img.shields.io/github/commit-activity/m/MaaEnd/MaaEnd?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/MaaEnd/MaaEnd?style=social) [![mirrorc](./docs/static/mirrorc-zh.svg)](https://mirrorchyan.com/zh/projects?source=maafw-badge) [![website](https://img.shields.io/badge/https://maaend.com-%234285F4)](https://maaend.com)  
+    终末地小助手。由 MaaFramework 与 MXU 驱动，绝赞开发中！
+
+- [MaaGFNeuralCloud](https://github.com/PinkMMF/MaaGFNeuralCloud) ![Pipeline](https://img.shields.io/badge/Pipeline-%23876f69?logo=paddypower&logoColor=%23FFFFFF) ![license](https://img.shields.io/github/license/PinkMMF/MaaGFNeuralCloud) ![activity](https://img.shields.io/github/commit-activity/m/PinkMMF/MaaGFNeuralCloud?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/PinkMMF/MaaGFNeuralCloud?style=social)  
+    少女前线：云图计划自动化助手。图像技术 + 模拟控制，解放双手！由 MaaFramework 强力驱动！
 
 ## 生态共建
 

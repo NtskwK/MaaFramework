@@ -191,11 +191,9 @@ maajs::PromiseType TaskerImpl::wait(MaaTaskId id)
     return worker->Promise();
 }
 
-maajs::PromiseType TaskerImpl::get_inited()
+bool TaskerImpl::get_inited()
 {
-    auto worker = new maajs::AsyncWork<bool>(env, [handle = tasker]() { return MaaTaskerInited(handle); });
-    worker->Queue();
-    return worker->Promise();
+    return MaaTaskerInited(tasker);
 }
 
 bool TaskerImpl::get_running()
@@ -210,7 +208,7 @@ bool TaskerImpl::get_stopping()
 
 void TaskerImpl::set_resource(std::optional<maajs::NativeObject<ResourceImpl>> res)
 {
-    bool succ {};
+    bool succ { };
     if (res) {
         succ = MaaTaskerBindResource(tasker, res->impl->resource);
     }
@@ -233,7 +231,7 @@ std::optional<maajs::ValueType> TaskerImpl::get_resource()
 
 void TaskerImpl::set_controller(std::optional<maajs::NativeObject<ControllerImpl>> ctrl)
 {
-    bool succ {};
+    bool succ { };
     if (ctrl) {
         succ = MaaTaskerBindController(tasker, ctrl->impl->controller);
     }
@@ -272,7 +270,7 @@ std::optional<maajs::ValueType> TaskerImpl::recognition_detail(MaaRecoId id)
     StringBuffer node_name;
     StringBuffer algorithm;
     MaaBool hit = false;
-    MaaRect box {};
+    MaaRect box { };
     StringBuffer detail;
     ImageBuffer raw;
     raw.data(env);
@@ -305,7 +303,7 @@ std::optional<maajs::ValueType> TaskerImpl::action_detail(MaaActId id)
 {
     StringBuffer node_name;
     StringBuffer action;
-    MaaRect box {};
+    MaaRect box { };
     MaaBool success = false;
     StringBuffer detail_json;
     if (MaaTaskerGetActionDetail(tasker, id, node_name, action, &box, &success, detail_json)) {
@@ -361,7 +359,7 @@ std::optional<maajs::ValueType> TaskerImpl::task_detail(MaaTaskId id)
 
         std::vector<maajs::ValueType> nodesArr;
         for (auto node_id : nodes) {
-            nodesArr.push_back(node_detail(node_id).value_or(env.Null()));
+            nodesArr.push_back(maajs::JSConvert<uint64_t>::to_value(env, node_id));
         }
         result["nodes"] = maajs::MakeArray(env, nodesArr);
 

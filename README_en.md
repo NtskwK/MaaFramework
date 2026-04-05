@@ -28,7 +28,7 @@ _✨ An automation black-box testing framework based on image recognition ✨_
   <a href="https://pkg.go.dev/github.com/MaaXYZ/maa-framework-go/v3"><img alt="go reference" src="https://pkg.go.dev/badge/github.com/MaaXYZ/maa-framework-go/v3.svg" /></a>
   <a href="https://mirrorchyan.com/en/projects?source=maafw-badge" target="_blank"><img alt="mirrorc" src="./docs/static/mirrorc-en.svg"></a>
   <br>
-  <a href="https://maafw.xyz/" target="_blank"><img alt="website" src="./docs/static/maafw.svg"></a>
+  <a href="https://maafw.com/" target="_blank"><img alt="website" src="./docs/static/maafw.svg"></a>
   <a href="https://deepwiki.com/MaaXYZ/MaaFramework" target="_blank"><img alt="deepwiki" src="https://deepwiki.com/badge.svg"></a>
 </p>
 
@@ -50,7 +50,7 @@ It offers low-code simplicity while maintaining high extensibility. The framewor
 ## Get Started
 
 > [!TIP]
-> Visit our [website](https://maafw.xyz/) for a better documentation experience.  
+> Visit our [website](https://maafw.com/) for a better documentation experience.  
 > Can't find the relevant documents? Try asking [AI](https://deepwiki.com/MaaXYZ/MaaFramework) ！
 
 - [Quick Start](docs/en_us/1.1-QuickStarted.md) & [Terms](docs/en_us/1.2-ExplanationOfTerms.md)
@@ -91,11 +91,20 @@ It offers low-code simplicity while maintaining high extensibility. The framewor
 - [MaaInspector](https://github.com/TanyaShue/MaaInspector) ![Typescript](https://img.shields.io/badge/Typescript-8A2BE2?logo=typescript) ![activity](https://img.shields.io/github/commit-activity/m/TanyaShue/MaaInspector?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/TanyaShue/MaaInspector?style=social)  
     A visual editor based on vue-flow — a simple and user-friendly MaaFramework Pipeline Editor that integrates node preview, editing, and debugging all in one.
 
-- [MaaMCP](https://github.com/MaaXYZ/MaaMCP) ![python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white) ![license](https://img.shields.io/github/license/MaaXYZ/MaaMCP) ![activity](https://img.shields.io/github/commit-activity/m/MaaXYZ/MaaMCP?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/MaaXYZ/MaaMCP?style=social) [![pypi](https://img.shields.io/badge/PyPI-3776AB?logo=pypi&logoColor=white)](https://pypi.org/project/maa-mcp)  
-    A MCP server, based on MaaFramework, provides AI assistants with automation capabilities for Android devices and Windows desktops.
+- [MaaLogAnalyzer](https://github.com/MaaXYZ/MaaLogAnalyzer) ![Typescript](https://img.shields.io/badge/Typescript-8A2BE2?logo=typescript) ![license](https://img.shields.io/github/license/Windsland52/MAALogAnalyzer) ![activity](https://img.shields.io/github/commit-activity/m/Windsland52/MAALogAnalyzer?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/Windsland52/MAALogAnalyzer?style=social) [![vscode](https://img.shields.io/badge/VSCode-0f81c2?style=plastic&logo=data:image/svg+xml)](https://marketplace.visualstudio.com/items?itemName=Windsland52.maa-log-analyzer) [![website](https://img.shields.io/badge/https://mla.maafw.com-%234285F4)](https://mla.maafw.com/)  
+    MaaFramework log analysis tool, providing user-friendly, multi-perspective visual analysis of task execution processes.
 
-- [MaaLogAnalyzer](https://github.com/Windsland52/MAALogAnalyzer) ![Typescript](https://img.shields.io/badge/Typescript-8A2BE2?logo=typescript) ![license](https://img.shields.io/github/license/Windsland52/MAALogAnalyzer) ![activity](https://img.shields.io/github/commit-activity/m/Windsland52/MAALogAnalyzer?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/Windsland52/MAALogAnalyzer?style=social) [![website](https://img.shields.io/badge/https://maaloganalyzer.maafw.xyz-%234285F4)](https://maaloganalyzer.maafw.xyz/)  
-    MaaFramework user log analysis tool, supporting visual task execution flow and full-text search.
+- [MaaLogs](https://github.com/amiliyaai/MaaLogs) ![TypeScript](https://img.shields.io/badge/Typescript-8A2BE2?logo=typescript) ![license](https://img.shields.io/github/license/amiliyaai/MaaLogs) ![activity](https://img.shields.io/github/commit-activity/m/amiliyaai/MaaLogs?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/amiliyaai/MaaLogs?style=social) [![website](https://img.shields.io/badge/https://maalogs.maafw.com-%234285F4)](https://maalogs.maafw.com/)  
+    MaaFramework log analysis tool that supports multi-project log parsing, visual task processes, and AI intelligent analysis.
+
+- [prettier-plugin-maafw-sort](https://github.com/neko-para/maa-support-extension/tree/main/pkgs/prettier-plugin-maafw-sort) ![TypeScript](https://img.shields.io/badge/Typescript-8A2BE2?logo=typescript) ![license](https://img.shields.io/github/license/neko-para/maa-support-extension) ![activity](https://img.shields.io/github/commit-activity/m/neko-para/maa-support-extension?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/neko-para/maa-support-extension?style=social) [![npm](https://img.shields.io/badge/npm-CB3837?logo=npm)](https://www.npmjs.com/package/@nekosu/prettier-plugin-maafw-sort)  
+    Prettier plugin that sorts pipeline keys according to lifecycle order.
+
+- [Auto Green Background](https://github.com/Joe-Bao/Auto-Green-Background) ![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white) ![Rust](https://img.shields.io/badge/Rust-000000?logo=rust) ![activity](https://img.shields.io/github/commit-activity/m/Joe-Bao/Auto-Green-Background?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/Joe-Bao/Auto-Green-Background?style=social) [![release](https://img.shields.io/github/v/release/Joe-Bao/Auto-Green-Background?display_name=tag)](https://github.com/Joe-Bao/Auto-Green-Background/releases)  
+    An automatic green screen painting tool (Python/OpenCV, for TemplateMatch), supporting multi-algorithm segmentation, fixed canvas output, real-time preview, and a portable, out-of-the-box package.
+  
+- [maafw-cli](https://github.com/otowa-kotori/maafw-cli) ![python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white) ![license](https://img.shields.io/github/license/otowa-kotori/maafw-cli) ![activity](https://img.shields.io/github/commit-activity/m/otowa-kotori/maafw-cli?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/otowa-kotori/maafw-cli?style=social) [![pypi](https://img.shields.io/badge/PyPI-3776AB?logo=pypi&logoColor=white)](https://pypi.org/project/maafw-cli/)  
+    A MaaFramework command-line interface (CLI) for AI Agents.
 
 ### Application
 
@@ -174,7 +183,13 @@ It offers low-code simplicity while maintaining high extensibility. The framewor
     Assistant for Trickcal. Image technology + simulation control, automatic pinch face, free hands! Powerfully driven by MaaFramework!
 
 - [MaaLYSK](https://github.com/Witty36/MaaLYSK) ![Pipeline](https://img.shields.io/badge/Pipeline-%23876f69?logo=paddypower&logoColor=%23FFFFFF) ![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white) ![license](https://img.shields.io/github/license/Witty36/MaaLYSK) ![activity](https://img.shields.io/github/commit-activity/m/Witty36/MaaLYSK?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/Witty36/MaaLYSK?style=social) [![mirrorc](./docs/static/mirrorc-en.svg)](https://mirrorchyan.com/en/projects?rid=MaaLYSK) [![website](https://img.shields.io/badge/https://maalysk.top-%234285F4)](https://maalysk.top)  
-    Assistant for Love and Deepspace. Image technology + simulation control, automatic pinch face, free hands! Powerfully driven by MaaFramework!
+     Assistant for Love and Deepspace. Image technology + simulation control, automatic pinch face, free hands! Powerfully driven by MaaFramework!
+
+- [MaaEnd](https://github.com/MaaEnd/MaaEnd) ![Pipeline](https://img.shields.io/badge/Pipeline-%23876f69?logo=paddypower&logoColor=%23FFFFFF) ![Go](https://img.shields.io/badge/Go-007d9c?logo=go) ![license](https://img.shields.io/github/license/MaaEnd/MaaEnd) ![activity](https://img.shields.io/github/commit-activity/m/MaaEnd/MaaEnd?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/MaaEnd/MaaEnd?style=social) [![mirrorc](./docs/static/mirrorc-en.svg)](https://mirrorchyan.com/en/projects?source=maafw-badge) [![website](https://img.shields.io/badge/https://maaend.com-%234285F4)](https://maaend.com)  
+     An Endfield assistant powered by MaaFramework and MXU, still under active development.
+
+- [MaaGFNeuralCloud](https://github.com/PinkMMF/MaaGFNeuralCloud) ![Pipeline](https://img.shields.io/badge/Pipeline-%23876f69?logo=paddypower&logoColor=%23FFFFFF) ![license](https://img.shields.io/github/license/PinkMMF/MaaGFNeuralCloud) ![activity](https://img.shields.io/github/commit-activity/m/PinkMMF/MaaGFNeuralCloud?color=%23ff69b4) ![stars](https://img.shields.io/github/stars/PinkMMF/MaaGFNeuralCloud?style=social)  
+    An assistant tool for Girls' Frontline: Project Neural Cloud using MaaFramework.
 
 ## Eco-Building
 

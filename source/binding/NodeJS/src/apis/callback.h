@@ -44,6 +44,11 @@ MaaBool CustomClickKey(int32_t keycode, void* trans_arg);
 MaaBool CustomInputText(const char* text, void* trans_arg);
 MaaBool CustomKeyDown(int32_t keycode, void* trans_arg);
 MaaBool CustomKeyUp(int32_t keycode, void* trans_arg);
+MaaBool CustomScroll(int32_t dx, int32_t dy, void* trans_arg);
+MaaBool CustomRelativeMove(int32_t dx, int32_t dy, void* trans_arg);
+MaaBool CustomShell(const char* cmd, int64_t timeout, void* trans_arg, MaaStringBuffer* buffer);
+MaaBool CustomInactive(void* trans_arg);
+MaaBool CustomGetInfo(void* trans_arg, MaaStringBuffer* buffer);
 
 inline MaaCustomControllerCallbacks CustomCallbacks {
     .connect = CustomConnect,
@@ -62,4 +67,9 @@ inline MaaCustomControllerCallbacks CustomCallbacks {
     .input_text = CustomInputText,
     .key_down = CustomKeyDown,
     .key_up = CustomKeyUp,
+    .scroll = CustomScroll,
+    .relative_move = CustomRelativeMove,
+    .shell = CustomShell,
+    .inactive = CustomInactive,
+    .get_info = CustomGetInfo,
 };

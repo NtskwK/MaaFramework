@@ -21,10 +21,10 @@ struct TaskJobImpl : public JobImpl
 
 struct TaskerImpl : public maajs::NativeClassBase
 {
-    MaaTasker* tasker {};
+    MaaTasker* tasker { };
     bool own = false;
-    std::map<MaaSinkId, maajs::CallbackContext*> sinks {};
-    std::map<MaaSinkId, maajs::CallbackContext*> ctxSinks {};
+    std::map<MaaSinkId, maajs::CallbackContext*> sinks { };
+    std::map<MaaSinkId, maajs::CallbackContext*> ctxSinks { };
 
     TaskerImpl() = default;
     TaskerImpl(MaaTasker* res, bool own);
@@ -53,7 +53,7 @@ struct TaskerImpl : public maajs::NativeClassBase
     maajs::ValueType post_stop(maajs::ValueType self, maajs::EnvType env);
     MaaStatus status(MaaResId id);
     maajs::PromiseType wait(MaaResId id);
-    maajs::PromiseType get_inited();
+    bool get_inited();
     bool get_running();
     bool get_stopping();
     void set_resource(std::optional<maajs::NativeObject<ResourceImpl>> res);

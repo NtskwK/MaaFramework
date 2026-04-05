@@ -2,14 +2,14 @@
 
 #include <filesystem>
 
-#include "ControlUnit/ControlUnitAPI.h"
+#include "MaaControlUnit/ControlUnitAPI.h"
 #include "MaaFramework/Instance/MaaCustomController.h"
 
 #include "Common/Conf.h"
 
 MAA_CTRL_UNIT_NS_BEGIN
 
-class CustomControlUnitMgr : public ControlUnitAPI
+class CustomControlUnitMgr : public CustomControlUnitAPI
 {
 public:
     CustomControlUnitMgr(MaaCustomControllerCallbacks* controller, void* controller_arg);
@@ -43,7 +43,17 @@ public: // from ControlUnitAPI
 
     virtual bool scroll(int dx, int dy) override;
 
+    virtual bool relative_move(int dx, int dy) override;
+    virtual bool
+        shell(const std::string& cmd, std::string& output, std::chrono::milliseconds timeout = std::chrono::milliseconds(20000)) override;
+
+    virtual bool inactive() override;
+
+    virtual json::object get_info() const override;
+
 private:
+    std::optional<json::object> get_info_from_controller() const;
+
     MaaCustomControllerCallbacks* controller_ = nullptr;
     void* controller_arg_ = nullptr;
 };

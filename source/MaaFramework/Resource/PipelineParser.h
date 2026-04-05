@@ -43,6 +43,8 @@ public:
 
     static bool parse_next(const json::value& input, std::vector<NodeAttr>& output);
 
+    static bool parse_wait_freezes_value(const json::value& input, WaitFreezesParam& output, const WaitFreezesParam& default_value);
+
 private:
     static bool parse_direct_hit_param(
         const json::value& input,
@@ -115,6 +117,7 @@ private:
     static bool parse_scroll(const json::value& input, Action::ScrollParam& output, const Action::ScrollParam& default_value);
     static bool parse_shell(const json::value& input, Action::ShellParam& output, const Action::ShellParam& default_value);
     static bool parse_command_param(const json::value& input, Action::CommandParam& output, const Action::CommandParam& default_value);
+    static bool parse_screencap(const json::value& input, Action::ScreencapParam& output, const Action::ScreencapParam& default_value);
     static bool parse_custom_action_param(const json::value& input, Action::CustomParam& output, const Action::CustomParam& default_value);
 
     static bool parse_wait_freezes_param(
@@ -146,6 +149,13 @@ private:
         const std::vector<NodeAttr>& default_next);
     static bool parse_node_in_next(const json::value& input, NodeAttr& output);
     static bool parse_node_string_in_next(const std::string& raw, NodeAttr& output);
+
+    static bool parse_anchor(
+        const json::value& input,
+        const std::string& key,
+        const std::string& node_name,
+        std::map<std::string, std::string>& output,
+        const std::map<std::string, std::string>& default_value);
 };
 
 MAA_RES_NS_END

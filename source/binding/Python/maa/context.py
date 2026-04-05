@@ -20,6 +20,7 @@ from .pipeline import (
     JActionType,
     JRecognitionParam,
     JActionParam,
+    JWaitFreezes,
 )
 
 
@@ -425,6 +426,46 @@ class Context:
             )
         )
 
+    def wait_freezes(
+        self,
+        time: int = 0,
+        box: Optional[Tuple[int, int, int, int]] = None,
+        wait_freezes_param: Optional[JWaitFreezes] = None,
+    ) -> bool:
+        """等待画面静止 / Wait for screen to stabilize (freeze)
+
+        Args:
+            time: 等待时间（毫秒） / Wait time in milliseconds
+            box: 识别命中的区域 (x, y, w, h)，用于 target 为 Self 时计算 ROI / Recognition hit box, used when target is Self to calculate ROI
+            wait_freezes_param: 等待参数，使用 JWaitFreezes。支持 time, target, target_offset, threshold, method, rate_limit, timeout
+                              / Wait parameters, use JWaitFreezes. Supports time, target, target_offset, threshold, method, rate_limit, timeout
+
+        Returns:
+            bool: 是否成功 / Whether successful
+
+        Note:
+            - time 和 wait_freezes_param.time 互斥，不能同时为非零或同时为零 / time and wait_freezes_param.time are mutually exclusive
+        """
+        rect_buffer = None
+        if box:
+            rect_buffer = RectBuffer()
+            rect_buffer.set(box)
+
+        # Convert JWaitFreezes to dict
+        from dataclasses import asdict
+
+        param_dict = asdict(wait_freezes_param) if wait_freezes_param is not None else {}
+        param_json = json.dumps(param_dict, ensure_ascii=False)
+
+        return bool(
+            Library.framework().MaaContextWaitFreezes(
+                self._handle,
+                ctypes.c_uint64(time),
+                rect_buffer._handle if rect_buffer else None,
+                param_json.encode(),
+            )
+        )
+
     ### private ###
 
     def _init_tasker(self):
@@ -561,8 +602,36 @@ class Context:
             ctypes.c_char_p,
         ]
 
+        Library.framework().MaaContextWaitFreezes.restype = MaaBool
+        Library.framework().MaaContextWaitFreezes.argtypes = [
+            MaaContextHandle,
+            ctypes.c_uint64,
+            MaaRectHandle,
+            ctypes.c_char_p,
+        ]
+
 
 class ContextEventSink(EventSink):
+    @dataclass
+    class NodeWaitFreezesDetail:
+        task_id: int
+        wf_id: int
+        name: str
+        phase: str
+        roi: Tuple[int, int, int, int]
+        param: Dict[str, Any]
+        reco_ids: list[int]
+        elapsed: Optional[int]
+        focus: Any
+
+    def on_node_wait_freezes(
+        self,
+        context: Context,
+        noti_type: NotificationType,
+        detail: NodeWaitFreezesDetail,
+    ):
+        pass
+
     @dataclass
     class NodeNextListDetail:
         task_id: int
@@ -584,6 +653,7 @@ class ContextEventSink(EventSink):
         reco_id: int
         name: str
         focus: Any
+        anchor: Optional[str] = None
 
     def on_node_recognition(
         self,
@@ -659,7 +729,21 @@ class ContextEventSink(EventSink):
         self.on_raw_notification(context, msg, details)
 
         noti_type = EventSink._notification_type(msg)
-        if msg.startswith("Node.NextList"):
+        if msg.startswith("Node.WaitFreezes"):
+            detail = self.NodeWaitFreezesDetail(
+                task_id=details["task_id"],
+                wf_id=details["wf_id"],
+                name=details["name"],
+                phase=details["phase"],
+                roi=tuple(details["roi"]),
+                param=details["param"],
+                reco_ids=details.get("reco_ids", []),
+                elapsed=details.get("elapsed"),
+                focus=details["focus"],
+            )
+            self.on_node_wait_freezes(context, noti_type, detail)
+
+        elif msg.startswith("Node.NextList"):
             next_list = JPipelineParser._parse_node_attr_list(details["list"])
             detail = self.NodeNextListDetail(
                 task_id=details["task_id"],
@@ -702,6 +786,7 @@ class ContextEventSink(EventSink):
                 reco_id=details["reco_id"],
                 name=details["name"],
                 focus=details["focus"],
+                anchor=details.get("anchor"),
             )
             self.on_node_recognition(context, noti_type, detail)
 

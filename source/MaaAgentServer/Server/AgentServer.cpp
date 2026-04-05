@@ -20,7 +20,15 @@ bool AgentServer::start_up(const std::string& identifier)
         return false;
     }
 
-    init_socket(identifier, false);
+    auto port_opt = parse_tcp_port(identifier);
+
+    if (port_opt) {
+        LogInfo << "Using TCP mode" << VAR(*port_opt);
+        init_tcp_socket(*port_opt, false);
+    }
+    else {
+        init_socket(identifier, false);
+    }
 
     msg_loop_running_ = true;
     msg_thread_ = std::thread(&AgentServer::request_msg_loop, this);
@@ -116,7 +124,7 @@ MaaSinkId AgentServer::add_context_sink(MaaEventCallback sink, void* trans_arg)
 
 bool AgentServer::handle_inserted_request(const json::value& j)
 {
-    LogInfo << VAR(j) << VAR(ipc_addr_);
+    // LogInfo << VAR(j) << VAR(ipc_addr_);
 
     if (handle_image_header(j)) {
         return true;
@@ -180,7 +188,7 @@ bool AgentServer::handle_recognition_request(const json::value& j)
     ImageBuffer mat_buffer(mat);
     MaaRect rect { req.roi[0], req.roi[1], req.roi[2], req.roi[3] };
 
-    MaaRect out_box {};
+    MaaRect out_box { };
     StringBuffer out_detail;
 
     MaaBool ret = session.recognition(
@@ -287,7 +295,7 @@ bool AgentServer::handle_shut_down_request(const json::value& j)
 
     msg_loop_running_ = false;
 
-    send(ShutDownResponse {});
+    send(ShutDownResponse { });
 
     return true;
 }
@@ -299,12 +307,12 @@ bool AgentServer::handle_resource_event(const json::value& j)
     }
 
     const ResourceEventRequest& req = j.as<ResourceEventRequest>();
-    LogFunc << VAR(req) << VAR(ipc_addr_) << VAR(req.message);
+    // LogFunc << VAR(req) << VAR(ipc_addr_) << VAR(req.message);
 
     RemoteResource resource(*this, req.resource_id);
     res_notifier_.notify(&resource, req.message, req.details);
 
-    send(ResourceEventResponse {});
+    send(ResourceEventResponse { });
 
     return true;
 }
@@ -315,12 +323,12 @@ bool AgentServer::handle_controller_event(const json::value& j)
         return false;
     }
     const ControllerEventRequest& req = j.as<ControllerEventRequest>();
-    LogFunc << VAR(req) << VAR(ipc_addr_) << VAR(req.message);
+    // LogFunc << VAR(req) << VAR(ipc_addr_) << VAR(req.message);
 
     RemoteController controller(*this, req.controller_id);
     ctrl_notifier_.notify(&controller, req.message, req.details);
 
-    send(ControllerEventResponse {});
+    send(ControllerEventResponse { });
 
     return true;
 }
@@ -331,12 +339,12 @@ bool AgentServer::handle_tasker_event(const json::value& j)
         return false;
     }
     const TaskerEventRequest& req = j.as<TaskerEventRequest>();
-    LogFunc << VAR(req) << VAR(ipc_addr_) << VAR(req.message);
+    // LogFunc << VAR(req) << VAR(ipc_addr_) << VAR(req.message);
 
     RemoteTasker tasker(*this, req.tasker_id);
     tasker_notifier_.notify(&tasker, req.message, req.details);
 
-    send(TaskerEventResponse {});
+    send(TaskerEventResponse { });
 
     return true;
 }
@@ -347,12 +355,12 @@ bool AgentServer::handle_context_event(const json::value& j)
         return false;
     }
     const ContextEventRequest& req = j.as<ContextEventRequest>();
-    LogFunc << VAR(req) << VAR(ipc_addr_) << VAR(req.message);
+    // LogFunc << VAR(req) << VAR(ipc_addr_) << VAR(req.message);
 
     RemoteContext context(*this, req.context_id);
     ctx_notifier_.notify(&context, req.message, req.details);
 
-    send(ContextEventResponse {});
+    send(ContextEventResponse { });
 
     return true;
 }

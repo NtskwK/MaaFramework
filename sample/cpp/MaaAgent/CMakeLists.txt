@@ -1,5 +1,4 @@
 add_executable(agent_child agent_child.cpp)
-
 target_link_libraries(agent_child MaaAgentServer)
 
 add_executable(agent_main agent_main.cpp)

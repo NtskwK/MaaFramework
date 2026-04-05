@@ -28,7 +28,7 @@ constexpr bool IsOptionalParam<OptionalParam<T>> = true;
 template <typename Inherit>
 struct NativeObject
 {
-    Inherit* impl {};
+    Inherit* impl { };
 
     operator Inherit*() const { return impl; }
 
@@ -171,7 +171,7 @@ struct JSConvert<nullptr_t>
     static nullptr_t from_value(ValueType val)
     {
         if (val.IsNull()) {
-            return {};
+            return { };
         }
         throw MaaError { std::format("expect {}, got {}", name(), DumpValue(val)) };
     }
@@ -187,7 +187,7 @@ struct JSConvert<std::monostate>
     static std::monostate from_value(ValueType val)
     {
         if (val.IsUndefined()) {
-            return {};
+            return { };
         }
         throw MaaError { std::format("expect {}, got {}", name(), DumpValue(val)) };
     }
@@ -244,6 +244,22 @@ struct JSConvert<int32_t>
 };
 
 template <>
+struct JSConvert<uint32_t>
+{
+    static std::string name() { return "number<uint32_t>"; }
+
+    static uint32_t from_value(ValueType val)
+    {
+        if (val.IsNumber()) {
+            return val.As<NumberType>().Uint32Value();
+        }
+        throw MaaError { std::format("expect {}, got {}", name(), DumpValue(val)) };
+    }
+
+    static ValueType to_value(EnvType env, const uint32_t& val) { return NumberType::New(env, val); }
+};
+
+template <>
 struct JSConvert<int64_t>
 {
     static std::string name() { return "string<int64_t>"; }
@@ -251,7 +267,12 @@ struct JSConvert<int64_t>
     static int64_t from_value(ValueType val)
     {
         if (val.IsString()) {
-            return std::stoll(val.As<StringType>().Utf8Value());
+            try {
+                return std::stoll(val.As<StringType>().Utf8Value());
+            }
+            catch (const std::invalid_argument&) {
+                throw MaaError { std::format("expect {}, got {}", name(), DumpValue(val)) };
+            }
         }
         throw MaaError { std::format("expect {}, got {}", name(), DumpValue(val)) };
     }
@@ -267,7 +288,12 @@ struct JSConvert<uint64_t>
     static uint64_t from_value(ValueType val)
     {
         if (val.IsString()) {
-            return std::stoull(val.As<StringType>().Utf8Value());
+            try {
+                return std::stoull(val.As<StringType>().Utf8Value());
+            }
+            catch (const std::invalid_argument&) {
+                throw MaaError { std::format("expect {}, got {}", name(), DumpValue(val)) };
+            }
         }
         throw MaaError { std::format("expect {}, got {}", name(), DumpValue(val)) };
     }
@@ -285,7 +311,12 @@ struct JSConvert<uintptr_t>
     static uintptr_t from_value(ValueType val)
     {
         if (val.IsString()) {
-            return std::stoull(val.As<StringType>().Utf8Value());
+            try {
+                return std::stoull(val.As<StringType>().Utf8Value());
+            }
+            catch (const std::invalid_argument&) {
+                throw MaaError { std::format("expect {}, got {}", name(), DumpValue(val)) };
+            }
         }
         throw MaaError { std::format("expect {}, got {}", name(), DumpValue(val)) };
     }

@@ -10,6 +10,7 @@
 #include "Common/TaskResultTypes.h"
 #include "Controller/ControllerAgent.h"
 #include "Resource/PipelineTypes.h"
+#include "Task/Component/ActionHelper.h"
 #include "Task/Context.h"
 #include "Tasker/Tasker.h"
 
@@ -33,8 +34,6 @@ private:
     inline static std::atomic<MaaActId> s_global_action_id = kActIdBase;
 
 private:
-    ActionResult execute_action(const cv::Rect& reco_hit, MaaRecoId reco_id, const PipelineData& pipeline_data, const std::string& entry);
-
     ActionResult click(const MAA_RES_NS::Action::ClickParam& param, const cv::Rect& box, const std::string& name);
     ActionResult long_press(const MAA_RES_NS::Action::LongPressParam& param, const cv::Rect& box, const std::string& name);
     ActionResult swipe(const MAA_RES_NS::Action::SwipeParam& param, const cv::Rect& box, const std::string& name);
@@ -49,6 +48,7 @@ private:
     ActionResult input_text(const MAA_RES_NS::Action::InputTextParam& param, const std::string& name);
     ActionResult scroll(const MAA_RES_NS::Action::ScrollParam& param, const cv::Rect& box, const std::string& name);
     ActionResult shell(const MAA_RES_NS::Action::ShellParam& param, const std::string& name);
+    ActionResult screencap(const MAA_RES_NS::Action::ScreencapParam& param, const std::string& name);
 
     ActionResult start_app(const MAA_RES_NS::Action::AppParam& param, const std::string& name);
     ActionResult stop_app(const MAA_RES_NS::Action::AppParam& param, const std::string& name);
@@ -60,20 +60,15 @@ private:
     ActionResult do_nothing(const std::string& name);
     ActionResult stop_task(const std::string& name);
 
-    void wait_freezes(const MAA_RES_NS::WaitFreezesParam& param, const cv::Rect& box);
-
-    cv::Rect get_target_rect(const MAA_RES_NS::Action::Target target, const cv::Rect& box);
-
 private:
     MAA_CTRL_NS::ControllerAgent* controller();
-
-    void sleep(unsigned ms) const;
-    void sleep(std::chrono::milliseconds ms) const;
 
 private:
     Tasker* tasker_ = nullptr;
     Context& context_;
     const MaaActId action_id_ = ++s_global_action_id;
+
+    ActionHelper helper_;
 };
 
 MAA_TASK_NS_END

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -17,8 +18,8 @@ using JTarget = std::variant<bool, std::string, JRect>;
 
 struct JDirectHit
 {
-    JTarget roi = JRect {};
-    JRect roi_offset {};
+    JTarget roi = JRect { };
+    JRect roi_offset { };
 
     MEO_TOJSON(roi, roi_offset);
 };
@@ -78,8 +79,9 @@ struct JOCR
     int index = 0;
     bool only_rec = false;
     std::string model;
+    std::string color_filter;
 
-    MEO_TOJSON(roi, roi_offset, expected, threshold, replace, order_by, index, only_rec, model);
+    MEO_TOJSON(roi, roi_offset, expected, threshold, replace, order_by, index, only_rec, model, color_filter);
 };
 
 struct JNeuralNetworkClassify
@@ -121,9 +123,12 @@ struct JCustomRecognition
 
 struct JSubRecognition;
 
+// Sub-recognition element: either a node name (string) or inline recognition (object)
+using JSubRecognitionItem = std::variant<std::string, json::value>;
+
 struct JAnd
 {
-    std::vector<json::value> all_of;
+    std::vector<JSubRecognitionItem> all_of;
     int box_index = 0;
 
     MEO_TOJSON(all_of, box_index);
@@ -131,7 +136,7 @@ struct JAnd
 
 struct JOr
 {
-    std::vector<json::value> any_of;
+    std::vector<JSubRecognitionItem> any_of;
 
     MEO_TOJSON(any_of);
 };
@@ -164,7 +169,7 @@ struct JDoNothing
 struct JClick
 {
     JTarget target;
-    JRect target_offset {};
+    JRect target_offset { };
     uint32_t contact = 0;
     int32_t pressure = 1;
 
@@ -174,7 +179,7 @@ struct JClick
 struct JLongPress
 {
     JTarget target;
-    JRect target_offset {};
+    JRect target_offset { };
     uint32_t duration = 0;
     uint32_t contact = 0;
     int32_t pressure = 1;
@@ -185,7 +190,7 @@ struct JSwipe
 {
     uint32_t starting = 0;
     JTarget begin;
-    JRect begin_offset {};
+    JRect begin_offset { };
     std::vector<JTarget> end;
     std::vector<JRect> end_offset;
     std::vector<uint32_t> end_hold;
@@ -207,7 +212,7 @@ struct JTouch
 {
     uint32_t contact = 0;
     JTarget target;
-    JRect target_offset {};
+    JRect target_offset { };
     int32_t pressure = 0;
 
     MEO_TOJSON(contact, target, target_offset, pressure);
@@ -271,7 +276,7 @@ struct JStopTask
 struct JScroll
 {
     JTarget target;
-    JRect target_offset {};
+    JRect target_offset { };
     int dx = 0;
     int dy = 0;
 
@@ -290,15 +295,24 @@ struct JCommand
 struct JShell
 {
     std::string cmd;
-    int64_t timeout = 20000;
+    int64_t shell_timeout = 20000;
 
-    MEO_TOJSON(cmd, timeout);
+    MEO_TOJSON(cmd, shell_timeout);
+};
+
+struct JScreencap
+{
+    std::string filename;
+    std::string format;
+    int quality = 0;
+
+    MEO_TOJSON(filename, format, quality);
 };
 
 struct JCustomAction
 {
     JTarget target;
-    JRect target_offset {};
+    JRect target_offset { };
     std::string custom_action;
     json::value custom_action_param;
 
@@ -323,6 +337,7 @@ using JActionParam = std::variant<
     JStopTask,
     JCommand,
     JShell,
+    JScreencap,
     JCustomAction>;
 
 struct JAction
@@ -337,7 +352,7 @@ struct JWaitFreezes
 {
     int64_t time = 0;
     JTarget target;
-    JRect target_offset {};
+    JRect target_offset { };
     double threshold = 0;
     int method = 0;
     int64_t rate_limit = 0;
@@ -354,7 +369,7 @@ struct JPipelineData
     int64_t rate_limit = 0;
     int64_t timeout = 0;
     std::vector<NodeAttr> on_error;
-    std::vector<std::string> anchor;
+    std::map<std::string, std::string> anchor;
     bool inverse = false;
     bool enabled = false;
     int64_t pre_delay = 0;

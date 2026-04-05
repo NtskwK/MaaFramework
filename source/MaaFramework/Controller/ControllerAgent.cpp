@@ -28,10 +28,6 @@ ControllerAgent::ControllerAgent(std::shared_ptr<MAA_CTRL_UNIT_NS::ControlUnitAP
 ControllerAgent::~ControllerAgent()
 {
     LogFunc;
-
-    if (action_runner_) {
-        action_runner_->wait_all();
-    }
 }
 
 bool ControllerAgent::set_option(MaaCtrlOption key, MaaOptionValue value, MaaOptionValueSize val_size)
@@ -45,6 +41,10 @@ bool ControllerAgent::set_option(MaaCtrlOption key, MaaOptionValue value, MaaOpt
         return set_image_target_short_side(value, val_size);
     case MaaCtrlOption_ScreenshotUseRawSize:
         return set_image_use_raw_size(value, val_size);
+    case MaaCtrlOption_MouseLockFollow:
+        return set_mouse_lock_follow_option(value, val_size);
+    case MaaCtrlOption_ScreenshotResizeMethod:
+        return set_screenshot_resize_method(value, val_size);
 
     default:
         LogError << "Unknown key" << VAR(key) << VAR(value);
@@ -131,6 +131,13 @@ MaaCtrlId ControllerAgent::post_touch_up(int contact)
     return focus_id(id);
 }
 
+MaaCtrlId ControllerAgent::post_relative_move(int dx, int dy)
+{
+    RelativeMoveParam p { .dx = dx, .dy = dy };
+    auto id = post({ .type = Action::Type::relative_move, .param = std::move(p) });
+    return focus_id(id);
+}
+
 MaaCtrlId ControllerAgent::post_key_down(int keycode)
 {
     ClickKeyParam p { .keycode = { keycode } };
@@ -154,8 +161,14 @@ MaaCtrlId ControllerAgent::post_scroll(int dx, int dy)
 
 MaaCtrlId ControllerAgent::post_shell(const std::string& cmd, int64_t timeout)
 {
-    ShellParam p { .cmd = cmd, .timeout = timeout };
+    ShellParam p { .cmd = cmd, .shell_timeout = timeout };
     auto id = post({ .type = Action::Type::shell, .param = std::move(p) });
+    return focus_id(id);
+}
+
+MaaCtrlId ControllerAgent::post_inactive()
+{
+    auto id = post({ .type = Action::Type::inactive });
     return focus_id(id);
 }
 
@@ -219,6 +232,11 @@ bool ControllerAgent::get_resolution(int32_t& width, int32_t& height) const
     width = image_raw_width_;
     height = image_raw_height_;
     return true;
+}
+
+json::object ControllerAgent::get_info() const
+{
+    return control_unit_->get_info();
 }
 
 MaaSinkId ControllerAgent::add_sink(MaaEventCallback callback, void* trans_arg)
@@ -294,6 +312,12 @@ bool ControllerAgent::touch_up(TouchParam p)
     return wait(id) == MaaStatus_Succeeded;
 }
 
+bool ControllerAgent::relative_move(RelativeMoveParam p)
+{
+    auto id = post({ .type = Action::Type::relative_move, .param = std::move(p) });
+    return wait(id) == MaaStatus_Succeeded;
+}
+
 bool ControllerAgent::click_key(ClickKeyParam p)
 {
     auto id = post({ .type = Action::Type::click_key, .param = std::move(p) });
@@ -328,7 +352,7 @@ cv::Mat ControllerAgent::screencap()
 {
     auto id = post({ .type = Action::Type::screencap });
     if (wait(id) != MaaStatus_Succeeded) {
-        return {};
+        return { };
     }
     return cached_image();
 }
@@ -353,12 +377,24 @@ bool ControllerAgent::scroll(ScrollParam p)
 
 bool ControllerAgent::shell(const std::string& cmd, std::string& output, int64_t timeout)
 {
-    ShellParam p { .cmd = cmd, .timeout = timeout };
+    ShellParam p { .cmd = cmd, .shell_timeout = timeout };
     auto id = post({ .type = Action::Type::shell, .param = std::move(p) });
     bool ret = wait(id) == MaaStatus_Succeeded;
     if (ret) {
         output = cached_shell_output();
     }
+    return ret;
+}
+
+bool ControllerAgent::handle_inactive()
+{
+    if (!control_unit_) {
+        LogError << "control_unit_ is nullptr";
+        return false;
+    }
+
+    bool ret = control_unit_->inactive();
+
     return ret;
 }
 
@@ -529,8 +565,8 @@ bool ControllerAgent::handle_multi_swipe(const MultiSwipeParam& param)
 
     struct SegmentOperating
     {
-        cv::Point begin {};
-        cv::Point end {};
+        cv::Point begin { };
+        cv::Point end { };
         double total_step = 0;
         double x_step_len = 0;
         double y_step_len = 0;
@@ -669,6 +705,21 @@ bool ControllerAgent::handle_touch_up(const TouchParam& param)
     bool ret = control_unit_->touch_up(param.contact);
 
     return ret;
+}
+
+bool ControllerAgent::handle_relative_move(const RelativeMoveParam& param)
+{
+    if (!control_unit_) {
+        LogError << "control_unit_ is nullptr";
+        return false;
+    }
+
+    if (auto unit = std::dynamic_pointer_cast<MAA_CTRL_UNIT_NS::RelativeMovableUnit>(control_unit_)) {
+        return unit->relative_move(param.dx, param.dy);
+    }
+
+    LogError << "Relative move is not supported for this controller type";
+    return false;
 }
 
 bool ControllerAgent::handle_click_key(const ClickKeyParam& param)
@@ -816,14 +867,17 @@ bool ControllerAgent::handle_scroll(const ScrollParam& param)
         return false;
     }
 
-    // Move to target position before scrolling
     cv::Point point = preproc_touch_point(param.point);
     if (!control_unit_->touch_move(0, point.x, point.y, 0)) {
         LogWarn << "Failed to move to scroll position" << VAR(point);
     }
 
-    bool ret = control_unit_->scroll(param.dx, param.dy);
-    return ret;
+    if (auto unit = std::dynamic_pointer_cast<MAA_CTRL_UNIT_NS::ScrollableUnit>(control_unit_)) {
+        return unit->scroll(param.dx, param.dy);
+    }
+
+    LogError << "Scroll is not supported for this controller type";
+    return false;
 }
 
 bool ControllerAgent::handle_shell(const ShellParam& param)
@@ -833,14 +887,17 @@ bool ControllerAgent::handle_shell(const ShellParam& param)
         return false;
     }
 
-    auto adb_unit = std::dynamic_pointer_cast<MAA_CTRL_UNIT_NS::AdbControlUnitAPI>(control_unit_);
-    if (!adb_unit) {
-        LogError << "Shell commands are only supported for ADB controllers. Current controller type does not support shell execution.";
+    std::string output;
+    auto timeout = param.shell_timeout < 0 ? std::chrono::milliseconds::max() : std::chrono::milliseconds(param.shell_timeout);
+
+    auto unit = std::dynamic_pointer_cast<MAA_CTRL_UNIT_NS::ShellableUnit>(control_unit_);
+    if (!unit) {
+        LogError << "Shell is not supported for this controller type";
         return false;
     }
 
-    std::string output;
-    bool ret = adb_unit->shell(param.cmd, output, std::chrono::milliseconds(param.timeout));
+    bool ret = unit->shell(param.cmd, output, timeout);
+
     if (ret) {
         std::unique_lock lock(shell_output_mutex_);
         shell_output_ = std::move(output);
@@ -879,6 +936,7 @@ bool ControllerAgent::run_action(typename AsyncRunner<Action>::Id id, Action act
         { "uuid", get_uuid() },
         { "action", action.type },
         { "param", action.param },
+        { "info", control_unit_->get_info() },
     };
 
     // LogInfo << cb_detail.to_string();
@@ -952,6 +1010,14 @@ bool ControllerAgent::run_action(typename AsyncRunner<Action>::Id id, Action act
         ret = handle_shell(std::get<ShellParam>(action.param));
         break;
 
+    case Action::Type::relative_move:
+        ret = handle_relative_move(std::get<RelativeMoveParam>(action.param));
+        break;
+
+    case Action::Type::inactive:
+        ret = handle_inactive();
+        break;
+
     default:
         LogError << "Unknown action type" << VAR(static_cast<int>(action.type));
         ret = false;
@@ -977,7 +1043,7 @@ cv::Point ControllerAgent::preproc_touch_point(const cv::Point& p)
         LogWarn << "Invalid image target size" << VAR(image_target_width_) << VAR(image_target_height_);
 
         if (!init_scale_info()) {
-            return {};
+            return { };
         }
     }
 
@@ -1011,14 +1077,14 @@ bool ControllerAgent::postproc_screenshot(const cv::Mat& raw)
         }
     }
 
-    cv::resize(raw, image_, { image_target_width_, image_target_height_ }, 0, 0, cv::INTER_AREA);
+    cv::resize(raw, image_, { image_target_width_, image_target_height_ }, 0, 0, image_resize_method_);
     return !image_.empty();
 }
 
 bool ControllerAgent::calc_target_image_size()
 {
-    if (image_target_long_side_ == 0 && image_target_short_side_ == 0) {
-        LogError << "Invalid image target size";
+    if (image_raw_width_ == 0 || image_raw_height_ == 0) {
+        LogError << "Invalid image raw size";
         return false;
     }
 
@@ -1027,6 +1093,11 @@ bool ControllerAgent::calc_target_image_size()
         image_target_width_ = image_raw_width_;
         image_target_height_ = image_raw_height_;
         return true;
+    }
+
+    if (image_target_long_side_ == 0 && image_target_short_side_ == 0) {
+        LogError << "Invalid image target size";
+        return false;
     }
 
     LogDebug << "Re-calc image target size:" << VAR(image_target_long_side_) << VAR(image_target_short_side_) << VAR(image_raw_width_)
@@ -1089,11 +1160,11 @@ bool ControllerAgent::set_image_target_long_side(MaaOptionValue value, MaaOption
 {
     LogDebug;
 
-    if (val_size != sizeof(image_target_long_side_)) {
+    if (val_size != sizeof(int32_t)) {
         LogError << "invalid value size: " << val_size;
         return false;
     }
-    image_target_long_side_ = *reinterpret_cast<int*>(value);
+    image_target_long_side_ = *reinterpret_cast<const int32_t*>(value);
     image_target_short_side_ = 0;
 
     clear_target_image_size();
@@ -1106,12 +1177,12 @@ bool ControllerAgent::set_image_target_short_side(MaaOptionValue value, MaaOptio
 {
     LogDebug;
 
-    if (val_size != sizeof(image_target_short_side_)) {
+    if (val_size != sizeof(int32_t)) {
         LogError << "invalid value size: " << val_size;
         return false;
     }
     image_target_long_side_ = 0;
-    image_target_short_side_ = *reinterpret_cast<int*>(value);
+    image_target_short_side_ = *reinterpret_cast<const int32_t*>(value);
 
     clear_target_image_size();
 
@@ -1127,10 +1198,55 @@ bool ControllerAgent::set_image_use_raw_size(MaaOptionValue value, MaaOptionValu
         LogError << "invalid value size: " << val_size;
         return false;
     }
-    image_use_raw_size_ = *reinterpret_cast<bool*>(value);
+    image_use_raw_size_ = *reinterpret_cast<const bool*>(value);
 
     clear_target_image_size();
 
+    return true;
+}
+
+bool ControllerAgent::set_mouse_lock_follow_option(MaaOptionValue value, MaaOptionValueSize val_size)
+{
+    LogDebug;
+
+    if (val_size != sizeof(bool)) {
+        LogError << "invalid value size: " << val_size;
+        return false;
+    }
+
+    if (!control_unit_) {
+        LogError << "control_unit_ is nullptr";
+        return false;
+    }
+
+    auto win32_unit = std::dynamic_pointer_cast<MAA_CTRL_UNIT_NS::Win32ControlUnitAPI>(control_unit_);
+    if (!win32_unit) {
+        LogError << "Mouse lock follow is only supported for Win32 controllers.";
+        return false;
+    }
+
+    bool enabled = *reinterpret_cast<const bool*>(value);
+    return win32_unit->set_mouse_lock_follow(enabled);
+}
+
+bool ControllerAgent::set_screenshot_resize_method(MaaOptionValue value, MaaOptionValueSize val_size)
+{
+    LogDebug;
+
+    if (val_size != sizeof(int32_t)) {
+        LogError << "invalid value size: " << val_size;
+        return false;
+    }
+
+    auto raw = *reinterpret_cast<const int32_t*>(value);
+    // valid range: cv::INTER_NEAREST(0) ~ cv::INTER_LANCZOS4(4)
+    if (raw < cv::INTER_NEAREST || raw > cv::INTER_LANCZOS4) {
+        LogError << "invalid resize method: " << raw;
+        return false;
+    }
+
+    image_resize_method_ = raw;
+    LogInfo << "image_resize_method_ = " << image_resize_method_;
     return true;
 }
 

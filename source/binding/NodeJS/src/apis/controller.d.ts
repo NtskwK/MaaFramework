@@ -53,6 +53,11 @@ declare global {
             dy: number
         }
 
+        type RelativeMoveParam = {
+            dx: number
+            dy: number
+        }
+
         type ActionParam =
             | {}
             | ClickParam
@@ -65,11 +70,13 @@ declare global {
             | InputTextParam
             | AppParam
             | ScrollParam
+            | RelativeMoveParam
 
         type ControllerNotify = {
             msg: NotifyMessage<'Action'>
             ctrl_id: number // CtrlId
             uuid: string
+            info: Record<string, unknown>
         } & (
             | {
                   action: 'connect'
@@ -96,6 +103,10 @@ declare global {
                   param: TouchParam
               }
             | {
+                  action: 'relative_move'
+                  param: RelativeMoveParam
+              }
+            | {
                   action: 'click_key' | 'key_down' | 'key_up'
                   param: ClickKeyParam
               }
@@ -109,6 +120,10 @@ declare global {
               }
             | {
                   action: 'screencap'
+                  param?: never
+              }
+            | {
+                  action: 'inactive'
                   param?: never
               }
             | {
@@ -136,6 +151,7 @@ declare global {
             set screenshot_target_long_side(value: number)
             set screenshot_target_short_side(value: number)
             set screenshot_use_raw_size(value: boolean)
+            set screenshot_resize_method(value: number)
 
             post_connection(): Job<CtrlId, Controller>
             post_click(
@@ -170,12 +186,24 @@ declare global {
                 pressure: number,
             ): Job<CtrlId, Controller>
             post_touch_up(contact: number): Job<CtrlId, Controller>
+            /**
+             * Post a relative move action. Supported by Win32, MacOS, and custom controllers that implement relative_move.
+             */
+            post_relative_move(dx: number, dy: number): Job<CtrlId, Controller>
+            /**
+             * Set mouse lock follow mode. For TPS/FPS games that lock the mouse in the background.
+             * Only supported by Win32 controllers using message-based input methods.
+             * @returns true if successful, false otherwise
+             */
+            set mouse_lock_follow(enabled: boolean)
             post_key_down(keycode: number): Job<CtrlId, Controller>
             post_key_up(keycode: number): Job<CtrlId, Controller>
             /**
-             * Post a scroll action. Using multiples of 120 (WHEEL_DELTA) is recommended for best compatibility.
+             * Post a scroll action. Supported by Win32, MacOS, and custom controllers that implement scroll.
+             * Using multiples of 120 (WHEEL_DELTA) is recommended for best compatibility.
              */
             post_scroll(dx: number, dy: number): Job<CtrlId, Controller>
+            post_inactive(): Job<CtrlId, Controller>
             post_screencap(): ImageJob
             override_pipeline(pipeline: Record<string, unknown> | Record<string, unknown>[]): void
             override_next(node_name: string, next_list: string[]): void
@@ -184,10 +212,11 @@ declare global {
             clear(): void
             status(id: CtrlId): Status
             wait(id: CtrlId): Promise<Status>
-            get connected(): Promise<boolean>
+            get connected(): boolean
             get cached_image(): ImageData | null
             get uuid(): string | null
             get resolution(): [width: number, height: number] | null
+            get info(): string | null
         }
 
         type AdbDevice = [
@@ -218,9 +247,19 @@ declare global {
         class Win32Controller extends Controller {
             constructor(
                 hwnd: DesktopHandle,
-                screencap_methods: ScreencapOrInputMethods,
+                screencap_method: ScreencapOrInputMethods,
                 mouse_method: ScreencapOrInputMethods,
-                keyboard_methods: ScreencapOrInputMethods,
+                keyboard_method: ScreencapOrInputMethods,
+            )
+
+            static find(): Promise<DesktopDevice[] | null>
+        }
+
+        class MacOSController extends Controller {
+            constructor(
+                window_id: number,
+                screencap_method: ScreencapOrInputMethods,
+                input_method: ScreencapOrInputMethods,
             )
 
             static find(): Promise<DesktopDevice[] | null>
@@ -231,11 +270,21 @@ declare global {
         }
 
         class DbgController extends Controller {
+            constructor(read_path: string)
+        }
+
+        class ReplayController extends Controller {
+            constructor(recording_path: string)
+        }
+
+        /**
+         * Proxy controller that wraps an existing controller and records all operations.
+         * The recorded file can be replayed using ReplayController.
+         */
+        class RecordController extends Controller {
             constructor(
-                read_path: string,
-                write_path: string,
-                type: Uint64, // DbgControllerType
-                config: string,
+                inner: Controller,
+                recording_path: string,
             )
         }
 
@@ -258,9 +307,17 @@ declare global {
             )
         }
 
+        type WlRootsCompositor = [handle: DesktopHandle, class_name: string, window_name: string]
+
+        class WlRootsController extends Controller {
+            constructor(wlr_socket_path: string)
+
+            static find(): Promise<WlRootsCompositor[] | null>
+        }
+
         interface CustomControllerActor {
             connect?(): maa.MaybePromise<boolean>
-            connected?(): maa.MaybePromise<boolean>
+            // connected?(): maa.MaybePromise<boolean>
             request_uuid?(): maa.MaybePromise<string | null>
             get_features?(): maa.MaybePromise<null | ('mouse' | 'keyboard')[]>
             start_app?(intent: string): maa.MaybePromise<boolean>
@@ -292,6 +349,10 @@ declare global {
             key_down?(keycode: number): maa.MaybePromise<boolean>
             key_up?(keycode: number): maa.MaybePromise<boolean>
             scroll?(dx: number, dy: number): maa.MaybePromise<boolean>
+            relative_move?(dx: number, dy: number): maa.MaybePromise<boolean>
+            shell?(cmd: string, timeout: number): maa.MaybePromise<string | null>
+            inactive?(): maa.MaybePromise<boolean>
+            get_info?(): maa.MaybePromise<string | null>
         }
 
         class CustomController extends Controller {

@@ -26,6 +26,7 @@ typedef MaaId MaaTaskId;
 typedef MaaId MaaRecoId;
 typedef MaaId MaaActId;
 typedef MaaId MaaNodeId;
+typedef MaaId MaaWfId;
 typedef MaaId MaaSinkId;
 #define MaaInvalidId ((MaaId)0)
 
@@ -210,6 +211,13 @@ enum MaaCtrlOptionEnum
     /// value: bool, eg: true; val_size: sizeof(bool)
     MaaCtrlOption_ScreenshotUseRawSize = 3,
 
+    /// Enable or disable mouse-lock-follow mode for Win32 controllers.
+    /// This is designed for TPS/FPS games that lock the mouse to their window in the background.
+    /// Only valid for Win32 controllers using message-based input methods.
+    ///
+    /// value: bool, eg: true; val_size: sizeof(bool)
+    MaaCtrlOption_MouseLockFollow = 4,
+
     // Deprecated
     // Dump all screenshots and actions
     //
@@ -218,6 +226,14 @@ enum MaaCtrlOptionEnum
     //
     // value: bool, eg: true; val_size: sizeof(bool)
     // MaaCtrlOption_Recording = 5,
+
+    /// Set the interpolation method used when resizing screenshots.
+    /// Value corresponds to cv::InterpolationFlags:
+    ///   INTER_NEAREST=0, INTER_LINEAR=1, INTER_CUBIC=2, INTER_AREA=3, INTER_LANCZOS4=4
+    /// Default is INTER_AREA (3).
+    ///
+    /// value: int, eg: 3; val_size: sizeof(int)
+    MaaCtrlOption_ScreenshotResizeMethod = 6,
 };
 
 typedef MaaOption MaaTaskerOption;
@@ -294,11 +310,16 @@ typedef uint64_t MaaAdbInputMethod;
 
 // MaaWin32ScreencapMethod:
 /**
- * @brief Win32 screencap method
+ * @brief Win32 screencap method flags
  *
- * No bitwise OR, select ONE method only.
+ * Use bitwise OR to set the methods you need.
+ * MaaFramework will test all provided methods and use the fastest available one.
  *
  * No default value. Client should choose one as default.
+ *
+ * Predefined combinations:
+ * - Foreground: DXGI_DesktopDup_Window | ScreenDC
+ * - Background: FramePool | PrintWindow
  *
  * Different applications use different rendering methods, there is no universal solution.
  *
@@ -311,8 +332,10 @@ typedef uint64_t MaaAdbInputMethod;
  * | PrintWindow             | Medium    | Medium        | No            | Yes                |                                  |
  * | ScreenDC                | Fast      | High          | No            | No                 |                                  |
  *
- * Note: When a window is minimized on Windows, all screencap methods will fail.
- * Avoid minimizing the target window.
+ * Note: FramePool and PrintWindow support pseudo-minimize — when the target window
+ * is minimized, they make it transparent and click-through, then restore it without
+ * activation, allowing screencap to continue without disturbing the user.
+ * Other screencap methods will fail when the target window is minimized.
  */
 typedef uint64_t MaaWin32ScreencapMethod;
 #define MaaWin32ScreencapMethod_None 0ULL
@@ -322,6 +345,10 @@ typedef uint64_t MaaWin32ScreencapMethod;
 #define MaaWin32ScreencapMethod_DXGI_DesktopDup_Window (1ULL << 3)
 #define MaaWin32ScreencapMethod_PrintWindow (1ULL << 4)
 #define MaaWin32ScreencapMethod_ScreenDC (1ULL << 5)
+
+#define MaaWin32ScreencapMethod_All (~MaaWin32ScreencapMethod_None)
+#define MaaWin32ScreencapMethod_Foreground (MaaWin32ScreencapMethod_DXGI_DesktopDup_Window | MaaWin32ScreencapMethod_ScreenDC)
+#define MaaWin32ScreencapMethod_Background (MaaWin32ScreencapMethod_FramePool | MaaWin32ScreencapMethod_PrintWindow)
 
 // MaaWin32InputMethod:
 /**
@@ -333,22 +360,26 @@ typedef uint64_t MaaWin32ScreencapMethod;
  *
  * Different applications process input differently, there is no universal solution.
  *
- * | Method                       | Compatibility | Require Admin | Seize Mouse | Background Support | Notes |
- * |------------------------------|---------------|---------------|--------------|--------------------|-------------------------------------------------------------|
- * | Seize                        | High          | No            | Yes          | No                 | | | SendMessage                  |
+ * | Method                       | Compatibility | Require Admin | Seize Mouse  | Background Support | Notes |
+ * |------------------------------|---------------|---------------|--------------|--------------------|-------------------------------------------------------------
+ * | | Seize                        | High          | No            | Yes          | No                 | | | SendMessage                  |
  * Medium        | Maybe         | No           | Yes                |                                                             | |
  * PostMessage                  | Medium        | Maybe         | No           | Yes                | | | LegacyEvent                  | Low
  * | No            | Yes          | No                 |                                                             | | PostThreadMessage
  * | Low           | Maybe         | No           | Yes                |                                                             | |
- * SendMessageWithCursorPos     | Medium        | Maybe         | Briefly      | Yes                | Designed for apps that check real
- * cursor position           | | PostMessageWithCursorPos     | Medium        | Maybe         | Briefly      | Yes                | Designed
- * for apps that check real cursor position           |
+ * SendMessageWithCursorPos     | Medium        | Maybe         | Briefly      | Yes                | Moves cursor to target position, then
+ * restores              | | PostMessageWithCursorPos     | Medium        | Maybe         | Briefly      | Yes                | Moves cursor
+ * to target position, then restores              | | SendMessageWithWindowPos     | Medium        | Maybe         | No           | Yes |
+ * Moves window to align target with cursor, then restores     | | PostMessageWithWindowPos     | Medium        | Maybe         | No | Yes |
+ * Moves window to align target with cursor, then restores     |
  *
  * Note:
  * - Admin rights mainly depend on the target application's privilege level.
  *   If the target runs as admin, MaaFramework should also run as admin for compatibility.
  * - "WithCursorPos" methods briefly move the cursor to target position, send message,
  *   then restore cursor position. This "briefly" seizes the mouse but won't block user operations.
+ * - "WithWindowPos" methods briefly move the window so the target aligns with the current cursor
+ *   position, send message, then restore the window position. The cursor is not moved.
  */
 typedef uint64_t MaaWin32InputMethod;
 #define MaaWin32InputMethod_None 0ULL
@@ -356,18 +387,42 @@ typedef uint64_t MaaWin32InputMethod;
 #define MaaWin32InputMethod_SendMessage (1ULL << 1)
 #define MaaWin32InputMethod_PostMessage (1ULL << 2)
 #define MaaWin32InputMethod_LegacyEvent (1ULL << 3)
-#define MaaWin32InputMethod_PostThreadMessage (1ULL << 4)
+#define MaaWin32InputMethod_PostThreadMessage (1ULL << 4) // Deprecated
 #define MaaWin32InputMethod_SendMessageWithCursorPos (1ULL << 5)
 #define MaaWin32InputMethod_PostMessageWithCursorPos (1ULL << 6)
+#define MaaWin32InputMethod_SendMessageWithWindowPos (1ULL << 7)
+#define MaaWin32InputMethod_PostMessageWithWindowPos (1ULL << 8)
 
-// MaaDbgControllerType:
+// MaaMacOSScreencapMethod:
 /**
- * No bitwise OR, just set it
+ * @brief macOS screencap method
+ *
+ * Select ONE method only.
+ *
+ * | Method          | Description                                    |
+ * |-----------------|------------------------------------------------|
+ * | ScreenCaptureKit| Modern macOS screencap using ScreenCaptureKit  |
  */
-typedef uint64_t MaaDbgControllerType;
-#define MaaDbgControllerType_None 0
-#define MaaDbgControllerType_CarouselImage 1ULL
-#define MaaDbgControllerType_ReplayRecording (1ULL << 1)
+typedef uint64_t MaaMacOSScreencapMethod;
+#define MaaMacOSScreencapMethod_None 0ULL
+#define MaaMacOSScreencapMethod_ScreenCaptureKit 1ULL
+// TODO Core Graphics method?
+
+// MaaMacOSInputMethod:
+/**
+ * @brief macOS input method
+ *
+ * Select ONE method only.
+ *
+ * | Method          | Description                                    |
+ * |-----------------|------------------------------------------------|
+ * | GlobalEvent     | Injects into the global HID event stream via CGEventPost(kCGHIDEventTap), dispatched by the OS to the front window |
+ * | PostToPid       | Directly send to target process using CGEventPostToPid |
+ */
+typedef uint64_t MaaMacOSInputMethod;
+#define MaaMacOSInputMethod_None 0ULL
+#define MaaMacOSInputMethod_GlobalEvent 1ULL
+#define MaaMacOSInputMethod_PostToPid (1ULL << 1)
 
 // MaaGamepadType:
 /**

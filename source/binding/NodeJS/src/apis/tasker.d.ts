@@ -2,7 +2,7 @@ declare global {
     namespace maa {
         type TaskDetail = {
             entry: string
-            nodes: (NodeDetail | null)[]
+            nodes: NodeId[]
             status: Status
         }
 
@@ -33,8 +33,8 @@ declare global {
             name: string
             algorithm: string
             hit: boolean
-            box: Rect
-            detail: RecoDetailObject | RecoDetailWithoutDraws[]
+            box: Rect | null
+            detail: RecoDetailObject | RecoDetailWithoutDraws[] | null
         }
 
         type RecoDetail = RecoDetailWithoutDraws & {
@@ -102,6 +102,7 @@ declare global {
             reco_id: number // RecoId
             name: string
             focus: unknown
+            anchor?: string
         }
 
         type TaskerContextActionNotify = {
@@ -151,7 +152,7 @@ declare global {
             post_stop(): TaskJob
             status(id: TaskId): Status
             wait(id: TaskId): Promise<Status>
-            get inited(): Promise<boolean>
+            get inited(): boolean
             get running(): boolean
             get stopping(): boolean
             set resource(res: Resource | null)
@@ -159,7 +160,10 @@ declare global {
             set controller(res: Controller | null)
             get controller(): Controller | null
             clear_cache(): void
-            override_pipeline(task_id: TaskId, pipeline: Record<string, unknown> | Record<string, unknown>[]): void
+            override_pipeline(
+                task_id: TaskId,
+                pipeline: Record<string, unknown> | Record<string, unknown>[],
+            ): void
             recognition_detail(id: RecoId): RecoDetail | null
             action_detail(id: ActId): ActionDetail | null
             node_detail(id: NodeId): NodeDetail | null

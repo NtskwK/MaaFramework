@@ -40,11 +40,10 @@ from maa.agent.agent_server import AgentServer
 
 from maa.resource import ResourceEventSink
 from maa.controller import ControllerEventSink
-from maa.tasker import TaskerEventSink
+from maa.tasker import Tasker, TaskerEventSink
 from maa.context import Context, ContextEventSink
 from maa.custom_action import CustomAction
 from maa.custom_recognition import CustomRecognition
-from maa.toolkit import Toolkit
 from maa.library import Library
 from maa.pipeline import JRecognitionType, JActionType, JOCR, JClick
 
@@ -139,6 +138,14 @@ class MyRecognition(CustomRecognition):
         hit_count = new_ctx.get_hit_count(argv.node_name)
         print(f"  hit_count: {hit_count}")
         new_ctx.clear_hit_count(argv.node_name)
+
+        # 测试 wait_freezes API（参数校验：time 和 wait_freezes_param.time 同时为零应返回 false）
+        from maa.pipeline import JWaitFreezes
+        wait_result = new_ctx.wait_freezes(time=0, wait_freezes_param=JWaitFreezes(time=0))
+        print(f"  wait_freezes (both zero): {wait_result}")
+        assert (
+            not wait_result
+        ), "wait_freezes should return false when both time are zero"
 
         # 测试 override_image (Context 级别)
         test_image = numpy.zeros((100, 100, 3), dtype=numpy.uint8)
@@ -260,6 +267,17 @@ class MyAction(CustomAction):
         assert isinstance(resolution, tuple), "resolution should be a tuple"
         assert len(resolution) == 2, "resolution should have 2 elements"
 
+        # 测试 info
+        info = controller.info
+        print(f"  info: {info}")
+        assert isinstance(info, dict), "info should be a dict"
+        assert "type" in info, "info should contain 'type'"
+        assert isinstance(info["type"], str), "info['type'] should be a str"
+        assert info["type"] == "replay", "info['type'] should be 'replay'"
+        assert (
+            "image_count" in info or "record_count" in info
+        ), "info should contain at least 'image_count' or 'record_count'"
+
         # 测试基本输入操作
         controller.post_click(191, 98).wait()
         controller.post_swipe(100, 200, 300, 400, 100).wait()
@@ -276,11 +294,41 @@ class MyAction(CustomAction):
         controller.post_key_up(65).wait()
 
         # 测试滚动操作
-        controller.post_scroll(0, 120).wait()
+        assert not controller.post_scroll(0, 120).wait().succeeded
 
         # 测试应用操作
         controller.post_start_app("aaa")
         controller.post_stop_app("bbb")
+
+        # 测试 inactive 操作
+        controller.post_inactive().wait()
+
+        # ============================================================
+        # Controller set_option 测试 (通过 RemoteController 远程调用)
+        # ============================================================
+
+        # 测试 set_screenshot_target_long_side
+        result = controller.set_screenshot_target_long_side(1280)
+        print(f"  set_screenshot_target_long_side(1280): {result}")
+        assert result, "set_screenshot_target_long_side should succeed"
+
+        # 测试 set_screenshot_target_short_side
+        result = controller.set_screenshot_target_short_side(720)
+        print(f"  set_screenshot_target_short_side(720): {result}")
+        assert result, "set_screenshot_target_short_side should succeed"
+
+        # 测试 set_screenshot_use_raw_size
+        result = controller.set_screenshot_use_raw_size(False)
+        print(f"  set_screenshot_use_raw_size(False): {result}")
+        assert result, "set_screenshot_use_raw_size should succeed"
+
+        # 测试 set_screenshot_resize_method (INTER_LINEAR=1)
+        result = controller.set_screenshot_resize_method(1)
+        print(f"  set_screenshot_resize_method(1): {result}")
+        assert result, "set_screenshot_resize_method should succeed"
+
+        # 恢复默认值
+        controller.set_screenshot_resize_method(3)
 
         # ============================================================
         # Tasker API 补充测试 (详情获取)
@@ -359,6 +407,6 @@ class MyCtxSink(ContextEventSink):
 if __name__ == "__main__":
     print(f"AgentServer MaaFw Version: {Library.version()}")
 
-    Toolkit.init_option(install_dir / "bin")
+    Tasker.set_log_dir(install_dir / "bin" / "debug")
 
     main()

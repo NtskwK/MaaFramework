@@ -43,6 +43,7 @@
  *     uuid: string,
  *     action: string,
  *     param: object,
+ *     info: object,
  * }
  */
 #define MaaMsg_Controller_Action_Starting ("Controller.Action.Starting")
@@ -146,6 +147,7 @@
  *     reco_id: number,
  *     name: string,
  *     focus: any,
+ *     anchor?: string,
  * }
  */
 #define MaaMsg_Node_Recognition_Starting ("Node.Recognition.Starting")
@@ -167,6 +169,33 @@
 #define MaaMsg_Node_Action_Starting ("Node.Action.Starting")
 #define MaaMsg_Node_Action_Succeeded ("Node.Action.Succeeded")
 #define MaaMsg_Node_Action_Failed ("Node.Action.Failed")
+/// @}
+
+/**
+ * @{
+ * @brief Message for wait freezes.
+ *
+ * details_json: {
+ *     task_id: number,
+ *     wf_id: number,
+ *     name: string,
+ *     phase: string,  // "pre" | "post" | "repeat" | "context"
+ *     roi: [number, number, number, number],
+ *     param: {
+ *         time: number,
+ *         threshold: number,
+ *         method: number,
+ *         rate_limit: number,
+ *         timeout: number,
+ *     },
+ *     reco_ids?: number[],  // Succeeded / Failed only
+ *     elapsed?: number,     // Succeeded / Failed only
+ *     focus: any,
+ * }
+ */
+#define MaaMsg_Node_WaitFreezes_Starting ("Node.WaitFreezes.Starting")
+#define MaaMsg_Node_WaitFreezes_Succeeded ("Node.WaitFreezes.Succeeded")
+#define MaaMsg_Node_WaitFreezes_Failed ("Node.WaitFreezes.Failed")
 /// @}
 
 /** @} */

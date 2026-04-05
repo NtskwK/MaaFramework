@@ -30,7 +30,7 @@ struct ActionResult
     MaaActId action_id = MaaInvalidId;
     std::string name;
     std::string action;
-    cv::Rect box {};
+    cv::Rect box { };
     bool success = false;
     json::value detail;
 
@@ -44,8 +44,22 @@ struct NodeDetail
     MaaRecoId reco_id = MaaInvalidId;
     MaaActId action_id = MaaInvalidId;
     bool completed = false;
+    bool jump_back = false;
 
     MEO_TOJSON(node_id, name, reco_id, action_id, completed);
+};
+
+struct WaitFreezesDetail
+{
+    MaaWfId wf_id = MaaInvalidId;
+    std::string name;
+    std::string phase;
+    bool success = false;
+    int64_t elapsed_ms = 0;
+    std::vector<MaaRecoId> reco_ids;
+    cv::Rect roi { };
+
+    MEO_TOJSON(wf_id, name, phase, success, elapsed_ms, reco_ids, roi);
 };
 
 struct TaskDetail

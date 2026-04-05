@@ -52,7 +52,7 @@ TemplateMatcher::ResultsVec TemplateMatcher::template_match(const cv::Mat& templ
 
     if (templ.cols > image.cols || templ.rows > image.rows) {
         LogError << name_ << "templ size is too large" << VAR(image) << VAR(templ);
-        return {};
+        return { };
     }
 
     bool invert_score = false;
@@ -103,7 +103,7 @@ TemplateMatcher::ResultsVec TemplateMatcher::template_match(const cv::Mat& templ
         raw_results.emplace_back(closest_result);
     }
 
-    auto nms_results = NMS(std::move(raw_results), 0.7, !low_score_better_);
+    auto nms_results = NMS(std::move(raw_results), 0.2, !low_score_better_);
 
     if (debug_draw_) {
         auto draw = draw_result(templ, nms_results);

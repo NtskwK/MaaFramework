@@ -107,6 +107,24 @@ bool Runner::run(const RuntimeParam& param)
         return false;
 #endif
     }
+    else if (const auto* p_macos_param = std::get_if<RuntimeParam::MacOSParam>(&param.controller_param)) {
+#if defined(__APPLE__)
+        controller_handle = MaaMacOSControllerCreate(p_macos_param->window_id, p_macos_param->screencap, p_macos_param->input);
+#else
+        std::ignore = p_macos_param;
+        LogError << "MacOS controller is only supported on macOS";
+        return false;
+#endif
+    }
+    else if (const auto* p_wlroots_param = std::get_if<RuntimeParam::WlRootsParam>(&param.controller_param)) {
+#if defined(__linux__)
+        controller_handle = MaaWlRootsControllerCreate(p_wlroots_param->wlr_socket_path.c_str());
+#else
+        std::ignore = p_wlroots_param;
+        LogError << "WlRoots controller is only supported on Linux";
+        return false;
+#endif
+    }
     else {
         LogError << "Unknown controller type";
         return false;
@@ -158,32 +176,39 @@ bool Runner::run(const RuntimeParam& param)
         return false;
     }
 
-    MaaAgentClient* agent = nullptr;
-    boost::process::child agent_child;
-    if (param.agent) {
-        agent = MaaAgentClientCreateV2(nullptr);
+    std::vector<MaaAgentClient*> agents;
+    std::vector<boost::process::child> agent_children;
+    for (const auto& agent_param : param.agent) {
+        MaaAgentClient* agent = MaaAgentClientCreateV2(nullptr);
         MaaAgentClientBindResource(agent, resource_handle);
         auto* id_buffer = MaaStringBufferCreate();
         MaaAgentClientIdentifier(agent, id_buffer);
         std::string socket_id = MaaStringBufferGet(id_buffer);
         MaaStringBufferDestroy(id_buffer);
 
-        std::vector<std::string> args = param.agent->child_args;
+        std::vector<std::string> args = agent_param.child_args;
         args.emplace_back(socket_id);
         auto os_args = conv_args(args);
 
-        LogInfo << "Start Agent" << VAR(param.agent->child_exec) << VAR(os_args) << VAR(param.agent->cwd);
-        agent_child = boost::process::child(param.agent->child_exec, os_args, boost::process::start_dir = param.agent->cwd);
+        // v2.5.0: set PI_* environment variables in current process (child inherits them)
+        for (const auto& [key, val] : agent_param.env_vars) {
+            boost::this_process::environment()[key] = val;
+        }
+
+        LogInfo << "Start Agent" << VAR(agent_param.child_exec) << VAR(os_args) << VAR(agent_param.cwd);
+        auto& agent_child = agent_children.emplace_back(agent_param.child_exec, os_args, boost::process::start_dir = agent_param.cwd);
         if (!agent_child.valid()) {
-            LogError << "Failed to start agent process" << VAR(param.agent->child_exec) << VAR(args) << VAR(param.agent->cwd);
+            LogError << "Failed to start agent process" << VAR(agent_param.child_exec) << VAR(args) << VAR(agent_param.cwd);
             return false;
         }
 
         bool connected = MaaAgentClientConnect(agent);
         if (!connected) {
-            LogError << "Failed to connect agent" << VAR(param.agent->child_exec) << VAR(args);
+            LogError << "Failed to connect agent" << VAR(agent_param.child_exec) << VAR(args);
             return false;
         }
+
+        agents.emplace_back(agent);
     }
 
     MaaId tid = 0;
@@ -193,7 +218,7 @@ bool Runner::run(const RuntimeParam& param)
 
     tasker_handle->wait(tid);
 
-    if (agent) {
+    for (auto* agent : agents) {
         MaaAgentClientDisconnect(agent);
         MaaAgentClientDestroy(agent);
     }

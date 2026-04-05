@@ -4,6 +4,8 @@
 
 #include "MaaUtils/Conf.h"
 
+#include "MaaControlUnit/MaaControlUnitDef.h"
+
 #define MAA_GLOBAL_NS MAA_NS::GlobalNS
 #define MAA_GLOBAL_NS_BEGIN \
     namespace MAA_GLOBAL_NS \
@@ -21,12 +23,6 @@
     namespace MAA_CTRL_NS \
     {
 #define MAA_CTRL_NS_END }
-
-#define MAA_CTRL_UNIT_NS MAA_NS::CtrlUnitNs
-#define MAA_CTRL_UNIT_NS_BEGIN \
-    namespace MAA_CTRL_UNIT_NS \
-    {
-#define MAA_CTRL_UNIT_NS_END }
 
 #define MAA_VISION_NS MAA_NS::VisionNS
 #define MAA_VISION_NS_BEGIN \
@@ -76,3 +72,4 @@ constexpr int64_t kTaskIdBase = 200'000'000;
 constexpr int64_t kNodeIdBase = 300'000'000;
 constexpr int64_t kRecoIdBase = 400'000'000;
 constexpr int64_t kActIdBase = 500'000'000;
+constexpr int64_t kWfIdBase = 600'000'000;

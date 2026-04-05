@@ -1,6 +1,7 @@
 #pragma once
 
 #include <numeric>
+#include <optional>
 #include <random>
 #include <ranges>
 
@@ -36,17 +37,17 @@ template <typename ResultsVec>
 inline static void sort_by_score_(ResultsVec& results, bool reverse = false)
 {
     if (reverse) {
-        std::ranges::sort(results, std::less {}, std::mem_fn(&ResultsVec::value_type::score));
+        std::ranges::sort(results, std::less { }, std::mem_fn(&ResultsVec::value_type::score));
     }
     else {
-        std::ranges::sort(results, std::greater {}, std::mem_fn(&ResultsVec::value_type::score));
+        std::ranges::sort(results, std::greater { }, std::mem_fn(&ResultsVec::value_type::score));
     }
 }
 
 template <typename ResultsVec>
 inline static void sort_by_count_(ResultsVec& results)
 {
-    std::ranges::sort(results, std::greater {}, std::mem_fn(&ResultsVec::value_type::count));
+    std::ranges::sort(results, std::greater { }, std::mem_fn(&ResultsVec::value_type::count));
 }
 
 template <typename ResultsVec>
@@ -58,7 +59,7 @@ inline static void sort_by_area_(ResultsVec& results)
 template <typename ResultsVec>
 inline static void sort_by_random_(ResultsVec& results)
 {
-    static std::default_random_engine rand_engine(std::random_device {}());
+    static std::default_random_engine rand_engine(std::random_device { }());
     std::ranges::shuffle(results, rand_engine);
 }
 
@@ -295,32 +296,68 @@ inline static std::vector<float> image_to_tensor(const cv::Mat& image)
     return tensor;
 }
 
-inline cv::Rect correct_roi(const cv::Rect& roi, const cv::Mat& image)
+// 将支持负数的矩形转换为标准矩形：
+// - x/y 负数表示从右/下边缘反向计算
+// - w/h 负数表示取绝对值并将 (x,y) 视为右下角
+// - w/h 为 0 表示延伸至边缘
+inline cv::Rect normalize_rect(const cv::Rect& rect, int image_width, int image_height)
 {
-    if (image.empty()) {
-        LogError << "image is empty" << VAR(image.size());
-        return roi;
+    cv::Rect res = rect;
+
+    if (res.x < 0) {
+        res.x = image_width + res.x;
     }
-    if (roi.empty()) {
-        return { 0, 0, image.cols, image.rows };
+    if (res.y < 0) {
+        res.y = image_height + res.y;
     }
 
-    cv::Rect res = roi;
+    if (res.width < 0) {
+        res.width = -res.width;
+        res.x -= res.width;
+    }
+    if (res.height < 0) {
+        res.height = -res.height;
+        res.y -= res.height;
+    }
+
+    if (res.width == 0) {
+        res.width = image_width - res.x;
+    }
+    if (res.height == 0) {
+        res.height = image_height - res.y;
+    }
+
+    return res;
+}
+
+inline std::optional<cv::Rect> correct_roi(const cv::Rect& roi, const cv::Mat& image)
+{
+    if (image.empty()) {
+        // 允许空图像，Custom Recognition 等场景可能不需要图像
+        LogDebug << "image is empty, skip roi correction" << VAR(roi);
+        return roi;
+    }
+
+    cv::Rect res = normalize_rect(roi, image.cols, image.rows);
+
+    // 边界检查和修正
     if (image.cols < res.x) {
         LogError << "roi is out of range" << VAR(image.size()) << VAR(res);
-        res.x = image.cols - res.width;
+        return std::nullopt;
     }
     if (image.rows < res.y) {
         LogError << "roi is out of range" << VAR(image.size()) << VAR(res);
-        res.y = image.rows - res.height;
+        return std::nullopt;
     }
 
     if (res.x < 0) {
         LogWarn << "roi is out of range" << VAR(image.size()) << VAR(res);
+        res.width += res.x; // 减少宽度以适应边界
         res.x = 0;
     }
     if (res.y < 0) {
         LogWarn << "roi is out of range" << VAR(image.size()) << VAR(res);
+        res.height += res.y; // 减少高度以适应边界
         res.y = 0;
     }
     if (image.cols < res.x + res.width) {
@@ -331,17 +368,36 @@ inline cv::Rect correct_roi(const cv::Rect& roi, const cv::Mat& image)
         LogWarn << "roi is out of range" << VAR(image.size()) << VAR(res);
         res.height = image.rows - res.y;
     }
+
+    if (res.empty()) {
+        LogWarn << "roi is empty after correction and will be removed" << VAR(image.size()) << VAR(res);
+        return std::nullopt;
+    }
+
     return res;
 }
 
 inline std::vector<cv::Rect> correct_rois(std::vector<cv::Rect> rois, const cv::Mat& image)
 {
     if (rois.empty()) {
-        return { correct_roi(cv::Rect {}, image) };
+        if (image.empty()) {
+            return { };
+        }
+        return { cv::Rect(0, 0, image.cols, image.rows) };
     }
-    for (auto& roi : rois) {
-        roi = correct_roi(roi, image);
+
+    for (auto it = rois.begin(); it != rois.end();) {
+        auto r = correct_roi(*it, image);
+        if (!r) {
+            LogWarn << "roi is invalid after correction and will be removed" << VAR(image.size()) << VAR(*it);
+            it = rois.erase(it);
+        }
+        else {
+            *it = *r;
+            ++it;
+        }
     }
+
     return rois;
 }
 

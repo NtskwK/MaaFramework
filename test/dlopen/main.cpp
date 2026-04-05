@@ -50,7 +50,7 @@ int main()
 #ifdef WITH_DBG_CONTROLLER
 
     std::cout << "********** DbgControlUnitLibraryHolder::create_control_unit **********" << std::endl;
-    auto dbg_handle = MAA_NS::DbgControlUnitLibraryHolder::create_control_unit(MaaDbgControllerType_CarouselImage, "./");
+    auto dbg_handle = MAA_NS::DbgControlUnitLibraryHolder::create_control_unit("./");
     if (!dbg_handle) {
         std::cerr << "Failed to create dbg control unit" << std::endl;
         return -1;
@@ -58,9 +58,12 @@ int main()
 
 #endif
 
+    // ReplayControlUnit requires a valid recording JSONL file to create successfully,
+    // so it cannot be tested in this simple dlopen smoke test.
+
 #ifdef WITH_CUSTOM_CONTROLLER
 
-    MaaCustomControllerCallbacks callbacks = {};
+    MaaCustomControllerCallbacks callbacks = { };
 
     std::cout << "********** CustomControlUnitLibraryHolder::create_control_unit **********" << std::endl;
     auto custom_handle = MAA_NS::CustomControlUnitLibraryHolder::create_control_unit(&callbacks, nullptr);

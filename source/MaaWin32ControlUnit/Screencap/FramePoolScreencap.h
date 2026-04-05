@@ -1,8 +1,5 @@
 #pragma once
 
-#include <condition_variable>
-#include <mutex>
-
 #include <sdkddkver.h>
 
 #ifndef MAA_FRAMEPOOL_SCREENCAP_AVAILABLE
@@ -38,16 +35,14 @@ public:
 public: // from ScreencapBase
     virtual std::optional<cv::Mat> screencap() override;
 
-public:
-    void frame_handler(
-        winrt::Windows::Graphics::Capture::Direct3D11CaptureFramePool const& sender,
-        winrt::Windows::Foundation::IInspectable const& args);
-
 private:
     bool init();
     bool init_texture(winrt::com_ptr<ID3D11Texture2D> raw_texture);
     void uninit();
     bool check_and_handle_size_changed();
+    void try_disable_border();
+    void try_disable_cursor();
+    void try_include_secondary_windows();
 
 private:
     HWND hwnd_ = nullptr;
@@ -56,12 +51,7 @@ private:
     winrt::com_ptr<ID3D11DeviceContext> d3d_context_ = nullptr;
     winrt::com_ptr<IDXGISwapChain> dxgi_swap_chain_ = nullptr;
     winrt::com_ptr<ID3D11Texture2D> readable_texture_ = nullptr;
-    D3D11_TEXTURE2D_DESC texture_desc_ = {};
-
-    std::mutex frame_mutex_;
-    std::condition_variable frame_cv_;
-    winrt::Windows::Graphics::Capture::Direct3D11CaptureFrame latest_frame_ = nullptr;
-    winrt::event_token frame_arrived_token_;
+    D3D11_TEXTURE2D_DESC texture_desc_ = { };
 
     winrt::Windows::Graphics::Capture::GraphicsCaptureItem cap_item_ = nullptr;
     winrt::Windows::Graphics::Capture::Direct3D11CaptureFramePool cap_frame_pool_ = nullptr;
@@ -69,6 +59,7 @@ private:
 
     // 存储上次的窗口大小，用于检测窗口大小变化
     std::pair<int, int> last_capture_size_ = { 0, 0 };
+    cv::Mat cached_image_;
 };
 
 MAA_CTRL_UNIT_NS_END
@@ -82,12 +73,12 @@ MAA_CTRL_UNIT_NS_BEGIN
 class FramePoolScreencap : public ScreencapBase
 {
 public:
-    FramePoolScreencap(HWND) {}
+    FramePoolScreencap(HWND) { }
 
     virtual ~FramePoolScreencap() override = default;
 
 public: // from ScreencapBase
-    virtual std::optional<cv::Mat> screencap() override { return {}; }
+    virtual std::optional<cv::Mat> screencap() override { return { }; }
 };
 
 MAA_CTRL_UNIT_NS_END

@@ -61,6 +61,9 @@ static maajs::ValueType load_win32_screencap_method(maajs::EnvType env)
     DEM(MaaWin32ScreencapMethod, DXGI_DesktopDup_Window);
     DEM(MaaWin32ScreencapMethod, PrintWindow);
     DEM(MaaWin32ScreencapMethod, ScreenDC);
+    DEM(MaaWin32ScreencapMethod, All);
+    DEM(MaaWin32ScreencapMethod, Foreground);
+    DEM(MaaWin32ScreencapMethod, Background);
 
     return obj;
 }
@@ -76,16 +79,8 @@ static maajs::ValueType load_win32_input_method(maajs::EnvType env)
     DEM(MaaWin32InputMethod, PostThreadMessage);
     DEM(MaaWin32InputMethod, SendMessageWithCursorPos);
     DEM(MaaWin32InputMethod, PostMessageWithCursorPos);
-
-    return obj;
-}
-
-static maajs::ValueType load_dbg_controller_type(maajs::EnvType env)
-{
-    auto obj = maajs::ObjectType::New(env);
-
-    DEM(MaaDbgControllerType, CarouselImage);
-    DEM(MaaDbgControllerType, ReplayRecording);
+    DEM(MaaWin32InputMethod, SendMessageWithWindowPos);
+    DEM(MaaWin32InputMethod, PostMessageWithWindowPos);
 
     return obj;
 }
@@ -152,6 +147,25 @@ static maajs::ValueType load_gamepad_contact(maajs::EnvType env)
     return obj;
 }
 
+static maajs::ValueType load_macos_screencap_method(maajs::EnvType env)
+{
+    auto obj = maajs::ObjectType::New(env);
+
+    DEM(MaaMacOSScreencapMethod, ScreenCaptureKit);
+
+    return obj;
+}
+
+static maajs::ValueType load_macos_input_method(maajs::EnvType env)
+{
+    auto obj = maajs::ObjectType::New(env);
+
+    DEM(MaaMacOSInputMethod, GlobalEvent);
+    DEM(MaaMacOSInputMethod, PostToPid);
+
+    return obj;
+}
+
 std::map<std::string, maajs::ValueType> load_constant(maajs::EnvType env)
 {
     return {
@@ -160,7 +174,8 @@ std::map<std::string, maajs::ValueType> load_constant(maajs::EnvType env)
         { "AdbInputMethod", load_adb_input_method(env) },
         { "Win32ScreencapMethod", load_win32_screencap_method(env) },
         { "Win32InputMethod", load_win32_input_method(env) },
-        { "DbgControllerType", load_dbg_controller_type(env) },
+        { "MacOSScreencapMethod", load_macos_screencap_method(env) },
+        { "MacOSInputMethod", load_macos_input_method(env) },
         { "GamepadType", load_gamepad_type(env) },
         { "GamepadButton", load_gamepad_button(env) },
         { "GamepadContact", load_gamepad_contact(env) },

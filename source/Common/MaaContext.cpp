@@ -110,7 +110,7 @@ MaaActId
         return MaaInvalidId;
     }
 
-    cv::Rect cvbox {};
+    cv::Rect cvbox { };
     if (box) {
         cvbox.x = box->x;
         cvbox.y = box->y;
@@ -196,6 +196,36 @@ MaaActId MaaContextRunActionDirect(
 
     cv::Rect cv_box { box->x, box->y, box->width, box->height };
     return context->run_action_direct(action_type, *param_opt, cv_box, reco_detail);
+}
+
+MaaBool MaaContextWaitFreezes(MaaContext* context, MaaSize time, const MaaRect* box, const char* wait_freezes_param)
+{
+    LogFunc << VAR_VOIDP(context) << VAR(time) << VAR(wait_freezes_param);
+
+    if (!context) {
+        LogError << "handle is null";
+        return false;
+    }
+
+    json::value param_json = json::object();
+    if (wait_freezes_param) {
+        auto param_opt = json::parse(wait_freezes_param);
+        if (!param_opt) {
+            LogError << "failed to parse wait_freezes_param" << VAR(wait_freezes_param);
+            return false;
+        }
+        param_json = std::move(*param_opt);
+    }
+
+    cv::Rect cv_box { };
+    if (box) {
+        cv_box.x = box->x;
+        cv_box.y = box->y;
+        cv_box.width = box->width;
+        cv_box.height = box->height;
+    }
+
+    return context->wait_freezes(std::chrono::milliseconds(time), cv_box, param_json);
 }
 
 MaaBool MaaContextOverridePipeline(MaaContext* context, const char* pipeline_override)

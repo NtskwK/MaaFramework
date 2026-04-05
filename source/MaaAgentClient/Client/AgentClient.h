@@ -26,6 +26,7 @@ public: // MaaAgentClient
     virtual void register_controller_sink(MaaController* ctrl) override;
     virtual void register_tasker_sink(MaaTasker* tasker) override;
     virtual std::string create_socket(const std::string& identifier) override;
+    virtual std::string create_tcp_socket(uint16_t port) override;
     virtual bool connect() override;
     virtual bool disconnect() override;
     virtual bool connected() override;
@@ -54,6 +55,7 @@ private:
     bool handle_context_get_anchor(const json::value& j);
     bool handle_context_get_hit_count(const json::value& j);
     bool handle_context_clear_hit_count(const json::value& j);
+    bool handle_context_wait_freezes(const json::value& j);
 
     bool handle_tasker_inited(const json::value& j);
     bool handle_tasker_post_task(const json::value& j);
@@ -72,6 +74,7 @@ private:
     bool handle_tasker_get_node_detail(const json::value& j);
     bool handle_tasker_get_reco_result(const json::value& j);
     bool handle_tasker_get_action_result(const json::value& j);
+    bool handle_tasker_get_wf_detail(const json::value& j);
     bool handle_tasker_get_latest_node(const json::value& j);
 
     bool handle_resource_post_bundle(const json::value& j);
@@ -105,10 +108,12 @@ private:
     bool handle_controller_post_shell(const json::value& j);
     bool handle_controller_post_touch_down(const json::value& j);
     bool handle_controller_post_touch_move(const json::value& j);
+    bool handle_controller_post_relative_move(const json::value& j);
     bool handle_controller_post_touch_up(const json::value& j);
     bool handle_controller_post_key_down(const json::value& j);
     bool handle_controller_post_key_up(const json::value& j);
     bool handle_controller_post_scroll(const json::value& j);
+    bool handle_controller_post_inactive(const json::value& j);
     bool handle_controller_status(const json::value& j);
     bool handle_controller_wait(const json::value& j);
     bool handle_controller_connected(const json::value& j);
@@ -117,6 +122,8 @@ private:
     bool handle_controller_get_shell_output(const json::value& j);
     bool handle_controller_get_uuid(const json::value& j);
     bool handle_controller_get_resolution(const json::value& j);
+    bool handle_controller_get_info(const json::value& j);
+    bool handle_controller_set_option(const json::value& j);
 
     bool handle_event_response(const json::value& j);
 

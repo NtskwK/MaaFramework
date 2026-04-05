@@ -3,6 +3,7 @@
 #include "MaaUtils/Encoding.h"
 #include "MaaUtils/Logger.h"
 #include "PipelineParser.h"
+#include "PipelineTypes.h"
 
 MAA_RES_NS_BEGIN
 
@@ -27,10 +28,13 @@ PipelineV2::JTarget dump_target(const T& target)
     case Action::Target::Type::Region:
         return dump_rect(std::get<cv::Rect>(target.param));
 
+    case Action::Target::Type::Anchor:
+        return std::string(PipelineData::kNodeAttr_Anchor) + std::get<std::string>(target.param);
+
     case Action::Target::Type::Invalid:
     default:
         LogError << "Invalid target type" << VAR(target.type);
-        return {};
+        return { };
     }
 }
 
@@ -172,6 +176,7 @@ PipelineV2::JRecognition PipelineDumper::dump_reco(Recognition::Type type, const
             .index = p.result_index,
             .only_rec = p.only_rec,
             .model = p.model,
+            .color_filter = p.color_filter,
         };
     } break;
 
@@ -209,12 +214,18 @@ PipelineV2::JRecognition PipelineDumper::dump_reco(Recognition::Type type, const
             return reco;
         }
 
-        std::vector<json::value> all_list;
+        std::vector<PipelineV2::JSubRecognitionItem> all_list;
         for (const auto& sub : p->all_of) {
-            auto sub_reco = dump_reco(sub.type, sub.param);
-            json::object sub_json = sub_reco.to_json().as_object();
-            sub_json["sub_name"] = sub.sub_name;
-            all_list.emplace_back(std::move(sub_json));
+            if (auto* node_name = std::get_if<std::string>(&sub)) {
+                all_list.emplace_back(*node_name);
+            }
+            else {
+                const auto& inline_sub = std::get<Recognition::InlineSubRecognition>(sub);
+                auto sub_reco = dump_reco(inline_sub.type, inline_sub.param);
+                json::object sub_json = sub_reco.to_json().as_object();
+                sub_json["sub_name"] = inline_sub.sub_name;
+                all_list.emplace_back(json::value(std::move(sub_json)));
+            }
         }
 
         reco.param = PipelineV2::JAnd {
@@ -230,12 +241,18 @@ PipelineV2::JRecognition PipelineDumper::dump_reco(Recognition::Type type, const
             return reco;
         }
 
-        std::vector<json::value> any_list;
+        std::vector<PipelineV2::JSubRecognitionItem> any_list;
         for (const auto& sub : p->any_of) {
-            auto sub_reco = dump_reco(sub.type, sub.param);
-            json::object sub_json = sub_reco.to_json().as_object();
-            sub_json["sub_name"] = sub.sub_name;
-            any_list.emplace_back(std::move(sub_json));
+            if (auto* node_name = std::get_if<std::string>(&sub)) {
+                any_list.emplace_back(*node_name);
+            }
+            else {
+                const auto& inline_sub = std::get<Recognition::InlineSubRecognition>(sub);
+                auto sub_reco = dump_reco(inline_sub.type, inline_sub.param);
+                json::object sub_json = sub_reco.to_json().as_object();
+                sub_json["sub_name"] = inline_sub.sub_name;
+                any_list.emplace_back(json::value(std::move(sub_json)));
+            }
         }
 
         reco.param = PipelineV2::JOr {
@@ -255,7 +272,7 @@ PipelineV2::JRecognition PipelineDumper::dump_reco(Recognition::Type type, const
 
     default:
         LogError << "Invalid recognition type" << VAR(type);
-        return {};
+        return { };
     }
 
     return reco;
@@ -268,7 +285,7 @@ PipelineV2::JAction PipelineDumper::dump_act(Action::Type type, const Action::Pa
 
     switch (type) {
     case Action::Type::DoNothing:
-        act.param = PipelineV2::JDoNothing {};
+        act.param = PipelineV2::JDoNothing { };
         break;
 
     case Action::Type::Click: {
@@ -402,7 +419,7 @@ PipelineV2::JAction PipelineDumper::dump_act(Action::Type type, const Action::Pa
     } break;
 
     case Action::Type::StopTask: {
-        act.param = PipelineV2::JStopTask {};
+        act.param = PipelineV2::JStopTask { };
         break;
     }
 
@@ -419,7 +436,16 @@ PipelineV2::JAction PipelineDumper::dump_act(Action::Type type, const Action::Pa
         const auto& p = std::get<Action::ShellParam>(param);
         act.param = PipelineV2::JShell {
             .cmd = p.cmd,
-            .timeout = p.timeout,
+            .shell_timeout = p.shell_timeout,
+        };
+    } break;
+
+    case Action::Type::Screencap: {
+        const auto& p = std::get<Action::ScreencapParam>(param);
+        act.param = PipelineV2::JScreencap {
+            .filename = p.filename,
+            .format = p.format,
+            .quality = p.quality,
         };
     } break;
 
@@ -435,7 +461,7 @@ PipelineV2::JAction PipelineDumper::dump_act(Action::Type type, const Action::Pa
 
     default:
         LogError << "Invalid action type" << VAR(type);
-        return {};
+        return { };
     }
 
     return act;

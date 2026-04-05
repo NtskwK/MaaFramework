@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <ranges>
+#include <unordered_set>
 
 #include "MaaUtils/Logger.h"
 
@@ -18,7 +19,35 @@ std::optional<InterfaceData> Parser::parse_interface(const std::filesystem::path
     }
 
     const json::value& json = *json_opt;
-    return parse_interface(json);
+    auto data_opt = parse_interface(json);
+    if (!data_opt) {
+        return std::nullopt;
+    }
+
+    InterfaceData& data = *data_opt;
+
+    auto base_dir = path.parent_path();
+    for (const std::string& import_path : data_opt->import_) {
+        auto import_full_path = base_dir / MaaNS::path(import_path);
+        auto import_data = parse_import_data(import_full_path);
+        if (!import_data) {
+            LogError << "failed to parse import interface data" << VAR(import_full_path) << VAR(import_path);
+            return std::nullopt;
+        }
+        data.task.insert(
+            data.task.end(),
+            std::make_move_iterator(import_data->task.begin()),
+            std::make_move_iterator(import_data->task.end()));
+
+        data.option.insert(std::make_move_iterator(import_data->option.begin()), std::make_move_iterator(import_data->option.end()));
+
+        data.preset.insert(
+            data.preset.end(),
+            std::make_move_iterator(import_data->preset.begin()),
+            std::make_move_iterator(import_data->preset.end()));
+    }
+
+    return data;
 }
 
 std::optional<InterfaceData> Parser::parse_interface(const json::value& json)
@@ -86,6 +115,30 @@ std::optional<Configuration> Parser::parse_config(const json::value& json)
     return json.as<Configuration>();
 }
 
+std::optional<ImportData> Parser::parse_import_data(const std::filesystem::path& path)
+{
+    LogFunc << VAR(path);
+    auto json_opt = json::open(path, true, true);
+    if (!json_opt) {
+        LogError << "failed to parse import interface" << VAR(path);
+        return std::nullopt;
+    }
+
+    const json::value& json = *json_opt;
+    return parse_import_data(json);
+}
+
+std::optional<ImportData> Parser::parse_import_data(const json::value& json)
+{
+    std::string error_key;
+    if (!ImportData().check_json(json, error_key)) {
+        LogError << "json is not a valid ImportData" << VAR(error_key);
+        return std::nullopt;
+    }
+
+    return json.as<ImportData>();
+}
+
 bool Parser::check_configuration(const InterfaceData& data, Configuration& config)
 {
     bool erased = false;
@@ -116,6 +169,57 @@ bool Parser::check_configuration(const InterfaceData& data, Configuration& confi
     }
     config.controller.type = controller_iter->type;
 
+    auto check_option_list = [&](std::vector<Configuration::Option>& opts) {
+        for (auto it = opts.begin(); it != opts.end();) {
+            auto option_iter = data.option.find(it->name);
+            if (option_iter == data.option.end()) {
+                LogWarn << "Option not found in interface, removing from config" << VAR(it->name);
+                it = opts.erase(it);
+                erased = true;
+                continue;
+            }
+
+            const auto& data_option = option_iter->second;
+            bool valid = true;
+
+            switch (data_option.type) {
+            case InterfaceData::Option::Type::Select:
+            case InterfaceData::Option::Type::Switch: {
+                if (!it->value.empty()) {
+                    auto case_iter = std::ranges::find(data_option.cases, it->value, std::mem_fn(&InterfaceData::Option::Case::name));
+                    if (case_iter == data_option.cases.end()) {
+                        LogWarn << "Option case not found, removing from config" << VAR(it->name) << VAR(it->value);
+                        valid = false;
+                    }
+                }
+            } break;
+            case InterfaceData::Option::Type::Checkbox: {
+                for (const auto& val : it->values) {
+                    auto case_iter = std::ranges::find(data_option.cases, val, std::mem_fn(&InterfaceData::Option::Case::name));
+                    if (case_iter == data_option.cases.end()) {
+                        LogWarn << "Checkbox case not found, removing from config" << VAR(it->name) << VAR(val);
+                        valid = false;
+                        break;
+                    }
+                }
+            } break;
+            case InterfaceData::Option::Type::Input:
+                break;
+            }
+
+            if (valid) {
+                ++it;
+            }
+            else {
+                it = opts.erase(it);
+                erased = true;
+            }
+        }
+    };
+    check_option_list(config.global_option);
+    check_option_list(config.resource_option);
+    check_option_list(config.controller_option);
+
     return !erased;
 }
 
@@ -145,8 +249,16 @@ bool Parser::check_task(const InterfaceData& data, Configuration::Task& config_t
                 return false;
             }
         } break;
+        case InterfaceData::Option::Type::Checkbox: {
+            for (const auto& val : config_option.values) {
+                auto case_iter = std::ranges::find(data_option.cases, val, std::mem_fn(&InterfaceData::Option::Case::name));
+                if (case_iter == data_option.cases.end()) {
+                    LogWarn << "Checkbox case not found" << VAR(config_task.name) << VAR(config_option.name) << VAR(val);
+                    return false;
+                }
+            }
+        } break;
         case InterfaceData::Option::Type::Input:
-            // input type uses inputs map, no case validation needed
             break;
         }
     }

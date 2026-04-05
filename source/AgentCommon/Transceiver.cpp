@@ -1,9 +1,19 @@
 #include "MaaAgent/Transceiver.h"
 
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
 #include <format>
+#include <fstream>
+#include <optional>
+#include <string_view>
 
 #ifdef _WIN32
 #include "MaaUtils/SafeWindows.hpp"
+// afunix.h 在旧版 SDK 中可能不存在，直接定义 AF_UNIX 常量
+#ifndef AF_UNIX
+#define AF_UNIX 1
+#endif
 #endif
 
 #include "MaaUtils/Platform.h"
@@ -51,39 +61,52 @@ bool Transceiver::handle_image_encoded_header(const json::value& j)
 
 static std::string temp_directory()
 {
+#ifndef _WIN32
     auto path = std::filesystem::temp_directory_path();
+#else
+    // https://github.com/MaaEnd/MaaEnd/issues/95
+    // 测了写权限了还不行，我没招了，直接拉💩
+    auto path = MaaNS::path("C:/Temp");
 
-#ifdef _WIN32
-
-    bool fallback = false;
-
-    // ZeroMQ IPC 在 Windows 上不支持 Unicode 路径，拉💩
-    if (GetACP() != CP_UTF8 && std::ranges::any_of(path.native(), [](wchar_t ch) { return ch > 127; })) {
-        fallback = true;
+    if (!std::filesystem::exists(path)) {
+        std::error_code ec;
+        std::filesystem::create_directories(path, ec);
     }
-    else if (!std::filesystem::exists(path) || !std::filesystem::is_directory(path)) {
-        fallback = true;
-    }
-
-    if (fallback) {
-        path = MaaNS::path("C:/Temp");
-        if (!std::filesystem::exists(path)) {
-            std::filesystem::create_directories(path);
-        }
-    }
-
 #endif
 
     return path_to_utf8_string(path);
 }
 
+static std::optional<uint16_t> parse_port_string(std::string_view port_str)
+{
+    if (port_str.empty()) {
+        return std::nullopt;
+    }
+
+    bool all_digits = std::all_of(port_str.begin(), port_str.end(), [](unsigned char c) { return std::isdigit(c) != 0; });
+    if (!all_digits) {
+        return std::nullopt;
+    }
+
+    char* end = nullptr;
+    unsigned long port = std::strtoul(port_str.data(), &end, 10);
+    if (end != port_str.data() + port_str.size() || port == 0 || port > 65535) {
+        return std::nullopt;
+    }
+
+    return static_cast<uint16_t>(port);
+}
+
 void Transceiver::init_socket(const std::string& identifier, bool bind)
 {
+    LogFunc << VAR(bind);
+
     static auto kTempDir = temp_directory();
 
     std::string path = std::format("{}/maafw-agent-{}.sock", kTempDir, identifier);
     ipc_addr_ = std::format("ipc://{}", path);
     ipc_path_ = MaaNS::path(path);
+    is_tcp_ = false;
 
     LogInfo << VAR(ipc_addr_) << VAR(identifier);
 
@@ -102,6 +125,104 @@ void Transceiver::init_socket(const std::string& identifier, bool bind)
     }
 }
 
+static uint16_t parse_port_from_endpoint(const std::string& endpoint)
+{
+    // endpoint 格式为 "tcp://127.0.0.1:12345"
+    auto pos = endpoint.rfind(':');
+    if (pos == std::string::npos || pos >= endpoint.size() - 1) {
+        return 0;
+    }
+
+    return parse_port_string(std::string_view(endpoint).substr(pos + 1)).value_or(0);
+}
+
+std::optional<uint16_t> Transceiver::parse_tcp_port(const std::string& identifier)
+{
+    return parse_port_string(identifier);
+}
+
+uint16_t Transceiver::init_tcp_socket(uint16_t port, bool bind)
+{
+    LogFunc << VAR(port) << VAR(bind);
+
+    is_tcp_ = true;
+
+    zmq_sock_ = zmq::socket_t(zmq_ctx_, zmq::socket_type::pair);
+
+    zmq_pollitem_send_ = zmq::pollitem_t(zmq_sock_.handle(), 0, ZMQ_POLLOUT, 0);
+    zmq_pollitem_recv_ = zmq::pollitem_t(zmq_sock_.handle(), 0, ZMQ_POLLIN, 0);
+
+    is_bound_ = bind;
+
+    if (is_bound_) {
+        // 如果 port 为 0，使用通配符让系统自动分配端口
+        std::string bind_addr = std::format("tcp://127.0.0.1:{}", port == 0 ? "*" : std::to_string(port));
+        zmq_sock_.bind(bind_addr);
+
+        // 获取实际绑定的端点
+        char endpoint[256] = { };
+        size_t endpoint_len = sizeof(endpoint);
+        zmq_getsockopt(zmq_sock_.handle(), ZMQ_LAST_ENDPOINT, endpoint, &endpoint_len);
+        ipc_addr_ = endpoint;
+
+        tcp_port_ = parse_port_from_endpoint(ipc_addr_);
+        LogInfo << "TCP socket bound" << VAR(ipc_addr_) << VAR(tcp_port_);
+    }
+    else {
+        ipc_addr_ = std::format("tcp://127.0.0.1:{}", port);
+        tcp_port_ = port;
+        zmq_sock_.connect(ipc_addr_);
+        LogInfo << "TCP socket connected" << VAR(ipc_addr_);
+    }
+
+    return tcp_port_;
+}
+
+bool Transceiver::should_fallback_to_tcp()
+{
+    LogFunc;
+
+#ifdef _WIN32
+    // Windows 从 Build 17063 开始支持 AF_UNIX (Unix Domain Socket)
+    // 直接尝试创建 socket 来检测系统是否支持，比检测版本号更可靠
+
+    static std::optional<bool> cached_result;
+    if (cached_result.has_value()) {
+        return *cached_result;
+    }
+
+    // 需要先初始化 Winsock，否则 socket() 会失败
+    WSADATA wsa_data;
+    int wsa_result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
+    if (wsa_result != 0) {
+        LogWarn << "WSAStartup failed, falling back to TCP" << VAR(wsa_result);
+        cached_result = true;
+        return true;
+    }
+
+    SOCKET test_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (test_sock == INVALID_SOCKET) {
+        int err = WSAGetLastError();
+        WSACleanup();
+        // WSAEAFNOSUPPORT (10047) 表示地址族不支持
+        LogWarn << "AF_UNIX socket not supported on this Windows version, falling back to TCP" << VAR(err);
+        cached_result = true;
+        return true;
+    }
+
+    closesocket(test_sock);
+    WSACleanup();
+    cached_result = false;
+
+    LogInfo << "AF_UNIX socket supported on this Windows version";
+    return false;
+#else
+    // 非 Windows 系统通常 IPC 工作正常
+    LogInfo << "IPC supported on this system";
+    return false;
+#endif
+}
+
 void Transceiver::uninit_socket()
 {
     LogFunc << VAR(ipc_addr_);
@@ -118,8 +239,11 @@ void Transceiver::uninit_socket()
     zmq_sock_.close();
     zmq_ctx_.close();
 
-    std::error_code ec;
-    std::filesystem::remove(ipc_path_, ec);
+    // TCP 模式无需删除 socket 文件
+    if (!is_tcp_) {
+        std::error_code ec;
+        std::filesystem::remove(ipc_path_, ec);
+    }
 }
 
 bool Transceiver::alive()
@@ -211,7 +335,7 @@ std::string Transceiver::send_image(const cv::Mat& mat)
 {
     if (mat.empty()) {
         LogWarn << "empty image" << VAR(ipc_addr_);
-        return {};
+        return { };
     }
 
     std::unique_lock lock(socket_mutex_);
@@ -227,14 +351,14 @@ std::string Transceiver::send_image(const cv::Mat& mat)
     // send header
     if (!poll(zmq_pollitem_send_)) {
         LogError << "send header canceled";
-        return {};
+        return { };
     }
     std::string jstr = json::value(header).dumps();
     zmq::message_t header_msg(jstr.data(), jstr.size());
     bool sent = zmq_sock_.send(std::move(header_msg), zmq::send_flags::dontwait).has_value();
     if (!sent) {
         LogError << "failed to send header" << VAR(header) << VAR(ipc_addr_);
-        return {};
+        return { };
     }
 
     // send image data
@@ -242,7 +366,7 @@ std::string Transceiver::send_image(const cv::Mat& mat)
     sent = zmq_sock_.send(img_msg, zmq::send_flags::none).has_value();
     if (!sent) {
         LogError << "failed to send msg" << VAR(ipc_addr_);
-        return {};
+        return { };
     }
     return header.uuid;
 }
@@ -251,7 +375,7 @@ std::string Transceiver::send_image_encoded(const ImageEncodedBuffer& encoded_da
 {
     if (encoded_data.empty()) {
         LogWarn << "empty encoded data" << VAR(ipc_addr_);
-        return {};
+        return { };
     }
 
     std::unique_lock lock(socket_mutex_);
@@ -264,14 +388,14 @@ std::string Transceiver::send_image_encoded(const ImageEncodedBuffer& encoded_da
     // send header
     if (!poll(zmq_pollitem_send_)) {
         LogError << "send encoded header canceled";
-        return {};
+        return { };
     }
     std::string jstr = json::value(header).dumps();
     zmq::message_t header_msg(jstr.data(), jstr.size());
     bool sent = zmq_sock_.send(std::move(header_msg), zmq::send_flags::dontwait).has_value();
     if (!sent) {
         LogError << "failed to send encoded header" << VAR(header) << VAR(ipc_addr_);
-        return {};
+        return { };
     }
 
     // send encoded image data
@@ -279,7 +403,7 @@ std::string Transceiver::send_image_encoded(const ImageEncodedBuffer& encoded_da
     sent = zmq_sock_.send(img_msg, zmq::send_flags::none).has_value();
     if (!sent) {
         LogError << "failed to send encoded image data" << VAR(ipc_addr_);
-        return {};
+        return { };
     }
     return header.uuid;
 }
@@ -288,13 +412,13 @@ cv::Mat Transceiver::get_image_cache(const std::string& uuid)
 {
     if (uuid.empty()) {
         LogWarn << "empty uuid" << VAR(ipc_addr_);
-        return {};
+        return { };
     }
 
     auto it = recved_images_.find(uuid);
     if (it == recved_images_.end()) {
         LogError << "image not found" << VAR(uuid) << VAR(ipc_addr_);
-        return {};
+        return { };
     }
 
     cv::Mat image = std::move(it->second);
@@ -306,14 +430,14 @@ cv::Mat Transceiver::get_image_cache(const std::string& uuid)
 Transceiver::ImageEncodedBuffer Transceiver::get_image_encoded_cache(const std::string& uuid)
 {
     if (uuid.empty()) {
-        LogWarn << "empty uuid" << VAR(ipc_addr_);
-        return {};
+        // LogWarn << "empty uuid" << VAR(ipc_addr_);
+        return { };
     }
 
     auto it = recved_images_encoded_.find(uuid);
     if (it == recved_images_encoded_.end()) {
         LogError << "encoded image not found" << VAR(uuid) << VAR(ipc_addr_);
-        return {};
+        return { };
     }
 
     ImageEncodedBuffer encoded_data = std::move(it->second);

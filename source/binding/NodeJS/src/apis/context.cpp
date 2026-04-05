@@ -114,6 +114,20 @@ maajs::PromiseType ContextImpl::run_action_direct(
     });
 }
 
+maajs::PromiseType
+    ContextImpl::wait_freezes(uint64_t time, maajs::OptionalParam<MaaRect> box, maajs::OptionalParam<maajs::ValueType> wait_freezes_param)
+{
+    std::optional<std::string> param_str;
+    if (wait_freezes_param) {
+        param_str = maajs::JsonStringify(env, *wait_freezes_param);
+    }
+    auto worker = new maajs::AsyncWork<bool>(env, [context = context, time, box, param_str]() {
+        return MaaContextWaitFreezes(context, time, box ? &box.value() : nullptr, param_str ? param_str->c_str() : nullptr);
+    });
+    worker->Queue();
+    return worker->Promise();
+}
+
 void ContextImpl::override_pipeline(maajs::ValueType pipeline)
 {
     auto str = maajs::JsonStringify(env, pipeline);

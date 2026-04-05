@@ -31,10 +31,6 @@ ResourceMgr::ResourceMgr()
 ResourceMgr::~ResourceMgr()
 {
     LogFunc;
-
-    if (res_loader_) {
-        res_loader_->wait_all();
-    }
 }
 
 bool ResourceMgr::set_option(MaaResOption key, MaaOptionValue value, MaaOptionValueSize val_size)
@@ -349,7 +345,7 @@ CustomRecognitionSession ResourceMgr::custom_recognition(const std::string& name
 {
     auto it = custom_recognition_sessions_.find(name);
     if (it == custom_recognition_sessions_.end()) {
-        return {};
+        return { };
     }
 
     return it->second;
@@ -359,7 +355,7 @@ CustomActionSession ResourceMgr::custom_action(const std::string& name) const
 {
     auto it = custom_action_sessions_.find(name);
     if (it == custom_action_sessions_.end()) {
-        return {};
+        return { };
     }
 
     return it->second;
@@ -415,7 +411,7 @@ bool ResourceMgr::set_inference_device(MaaOptionValue value, MaaOptionValueSize 
     }
 
     inference_device_setted_ = false;
-    inference_device_ = *reinterpret_cast<MaaInferenceDevice*>(value);
+    inference_device_ = *reinterpret_cast<const MaaInferenceDevice*>(value);
     LogInfo << VAR(inference_device_);
 
     return true;
@@ -431,7 +427,7 @@ bool ResourceMgr::set_inference_execution_provider(MaaOptionValue value, MaaOpti
     }
 
     inference_device_setted_ = false;
-    inference_ep_ = *reinterpret_cast<MaaInferenceExecutionProvider*>(value);
+    inference_ep_ = *reinterpret_cast<const MaaInferenceExecutionProvider*>(value);
     LogInfo << VAR(inference_ep_);
 
     return true;
@@ -820,7 +816,7 @@ std::optional<json::object> ResourceMgr::get_default_action_param(const std::str
 
     switch (type) {
     case Type::DoNothing:
-        param = std::monostate {};
+        param = std::monostate { };
         break;
     case Type::Click:
         param = default_pipeline_.get_action_param<ClickParam>(type);
@@ -862,13 +858,16 @@ std::optional<json::object> ResourceMgr::get_default_action_param(const std::str
         param = default_pipeline_.get_action_param<ScrollParam>(type);
         break;
     case Type::StopTask:
-        param = std::monostate {};
+        param = std::monostate { };
         break;
     case Type::Command:
         param = default_pipeline_.get_action_param<CommandParam>(type);
         break;
     case Type::Shell:
         param = default_pipeline_.get_action_param<ShellParam>(type);
+        break;
+    case Type::Screencap:
+        param = default_pipeline_.get_action_param<ScreencapParam>(type);
         break;
     case Type::Custom:
         param = default_pipeline_.get_action_param<CustomParam>(type);

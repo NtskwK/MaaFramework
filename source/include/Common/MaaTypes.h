@@ -89,12 +89,16 @@ public:
     virtual MaaCtrlId post_touch_move(int contact, int x, int y, int pressure) = 0;
     virtual MaaCtrlId post_touch_up(int contact) = 0;
 
+    virtual MaaCtrlId post_relative_move(int dx, int dy) = 0;
+
     virtual MaaCtrlId post_key_down(int keycode) = 0;
     virtual MaaCtrlId post_key_up(int keycode) = 0;
 
     virtual MaaCtrlId post_scroll(int dx, int dy) = 0;
 
     virtual MaaCtrlId post_shell(const std::string& cmd, int64_t timeout = 20000) = 0;
+
+    virtual MaaCtrlId post_inactive() = 0;
 
     virtual MaaStatus status(MaaCtrlId ctrl_id) const = 0;
     virtual MaaStatus wait(MaaCtrlId ctrl_id) const = 0;
@@ -106,6 +110,8 @@ public:
     virtual std::string get_uuid() = 0;
 
     virtual bool get_resolution(int32_t& width, int32_t& height) const = 0;
+
+    virtual json::object get_info() const = 0;
 };
 
 struct MaaTasker : public IMaaEventDispatcher
@@ -144,6 +150,7 @@ public:
     virtual std::optional<MAA_TASK_NS::NodeDetail> get_node_detail(MaaNodeId node_id) const = 0;
     virtual std::optional<MAA_TASK_NS::RecoResult> get_reco_result(MaaRecoId reco_id) const = 0;
     virtual std::optional<MAA_TASK_NS::ActionResult> get_action_result(MaaActId action_id) const = 0;
+    virtual std::optional<MAA_TASK_NS::WaitFreezesDetail> get_wf_detail(MaaWfId wf_id) const = 0;
     virtual std::optional<MaaNodeId> get_latest_node(const std::string& node_name) const = 0;
 
     virtual MaaSinkId add_context_sink(MaaEventCallback callback, void* trans_arg) = 0;
@@ -177,6 +184,8 @@ public:
     virtual std::optional<std::string> get_anchor(const std::string& anchor_name) const = 0;
     virtual size_t get_hit_count(const std::string& node_name) const = 0;
     virtual void clear_hit_count(const std::string& node_name) = 0;
+
+    virtual bool wait_freezes(std::chrono::milliseconds time, const cv::Rect& box, const json::value& wait_freezes_param) = 0;
 };
 
 struct MaaAgentClient
@@ -190,6 +199,7 @@ public:
     virtual void register_controller_sink(MaaController* ctrl) = 0;
     virtual void register_tasker_sink(MaaTasker* tasker) = 0;
     virtual std::string create_socket(const std::string& identifier) = 0;
+    virtual std::string create_tcp_socket(uint16_t port) = 0;
     virtual bool connect() = 0;
     virtual bool disconnect() = 0;
     virtual bool connected() = 0;

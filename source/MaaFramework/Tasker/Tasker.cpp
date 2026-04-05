@@ -35,10 +35,6 @@ Tasker::Tasker()
 Tasker::~Tasker()
 {
     LogFunc;
-
-    if (task_runner_) {
-        task_runner_->wait_all();
-    }
 }
 
 bool Tasker::bind_resource(MaaResource* resource)
@@ -73,7 +69,8 @@ bool Tasker::bind_controller(MaaController* controller)
 
 bool Tasker::inited() const
 {
-    return resource_ && controller_ && resource_->valid() && controller_->connected();
+    // 要求 resource 有效；controller 是可选的，但如果已绑定则必须处于连接状态
+    return resource_ && resource_->valid() && (!controller_ || controller_->connected());
 }
 
 bool Tasker::set_option(MaaTaskerOption key, MaaOptionValue value, MaaOptionValueSize val_size)
@@ -184,7 +181,7 @@ MaaTaskId Tasker::post_stop()
 
     static const std::string kStopEntry = "MaaTaskerPostStop";
     auto task_ptr = std::make_shared<MAA_TASK_NS::EmptyTask>(kStopEntry, this);
-    return post_task(std::move(task_ptr), json::object {});
+    return post_task(std::move(task_ptr), json::object { });
 }
 
 bool Tasker::stopping() const
@@ -232,6 +229,11 @@ std::optional<MAA_TASK_NS::RecoResult> Tasker::get_reco_result(MaaRecoId reco_id
 std::optional<MAA_TASK_NS::ActionResult> Tasker::get_action_result(MaaActId action_id) const
 {
     return runtime_cache().get_action_result(action_id);
+}
+
+std::optional<MAA_TASK_NS::WaitFreezesDetail> Tasker::get_wf_detail(MaaWfId wf_id) const
+{
+    return runtime_cache().get_wf_detail(wf_id);
 }
 
 std::optional<MaaNodeId> Tasker::get_latest_node(const std::string& node_name) const
@@ -358,6 +360,10 @@ bool Tasker::run_task(RunnerId runner_id, TaskPtr task_ptr)
         runtime_cache_.set_task_detail(task_id, std::move(task_detail));
     }
     notifier_.notify(this, ret ? MaaMsg_Tasker_Task_Succeeded : MaaMsg_Tasker_Task_Failed, cb_detail);
+
+    if (controller_ && !task_runner_->pending()) {
+        controller_->wait(controller_->post_inactive());
+    }
 
     return ret;
 }

@@ -2,7 +2,7 @@ import ctypes
 import platform
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import List, Tuple, Union, Dict, Optional
+from typing import Callable, List, Tuple, Union, Dict, Optional
 
 import numpy
 from strenum import StrEnum  # For Python 3.9/3.10
@@ -18,6 +18,7 @@ MaaTaskId = MaaId
 MaaRecoId = MaaId
 MaaActId = MaaId
 MaaNodeId = MaaId
+MaaWfId = MaaId
 MaaSinkId = MaaId
 MaaInvalidId = MaaId(0)
 
@@ -125,11 +126,24 @@ class MaaCtrlOptionEnum(IntEnum):
     # value: bool, eg: true; val_size: sizeof(bool)
     ScreenshotUseRawSize = 3
 
+    # Enable or disable mouse-lock-follow mode for Win32 controllers.
+    # This is designed for TPS/FPS games that lock the mouse to their window in the background.
+    # Only valid for Win32 controllers using message-based input methods.
+    # value: bool, eg: true; val_size: sizeof(bool)
+    MouseLockFollow = 4
+
     # Deprecated
     # Dump all screenshots and actions
     # this option will || with MaaGlobalOptionEnum.Recording
     # value: bool, eg: true; val_size: sizeof(bool)
     # Recording = 5
+
+    # Set the interpolation method used when resizing screenshots.
+    # Value corresponds to cv::InterpolationFlags:
+    #   INTER_NEAREST=0, INTER_LINEAR=1, INTER_CUBIC=2, INTER_AREA=3, INTER_LANCZOS4=4
+    # value: int, eg: 3; val_size: sizeof(int)
+    # default is 3 (INTER_AREA)
+    ScreenshotResizeMethod = 6
 
 
 class MaaInferenceDeviceEnum(IntEnum):
@@ -257,11 +271,16 @@ MaaWin32ScreencapMethod = ctypes.c_uint64
 
 class MaaWin32ScreencapMethodEnum(IntEnum):
     """
-    Win32 screencap method.
+    Win32 screencap method flags.
 
-    No bitwise OR, select ONE method only.
+    Use bitwise OR to set the methods you need.
+    MaaFramework will test all provided methods and use the fastest available one.
 
     No default value. Client should choose one as default.
+
+    Predefined combinations:
+    - Foreground: DXGI_DesktopDup_Window | ScreenDC
+    - Background: FramePool | PrintWindow
 
     Different applications use different rendering methods, there is no universal solution.
 
@@ -274,8 +293,8 @@ class MaaWin32ScreencapMethodEnum(IntEnum):
     | PrintWindow             | Medium    | Medium        | No            | Yes                |                                  |
     | ScreenDC                | Fast      | High          | No            | No                 |                                  |
 
-    Note: When a window is minimized on Windows, all screencap methods will fail.
-    Avoid minimizing the target window.
+    Note: FramePool and PrintWindow support pseudo-minimize. Other methods still fail
+    when the target window is minimized.
     """
 
     Null = 0
@@ -286,6 +305,9 @@ class MaaWin32ScreencapMethodEnum(IntEnum):
     DXGI_DesktopDup_Window = 1 << 3
     PrintWindow = 1 << 4
     ScreenDC = 1 << 5
+    All = ~Null
+    Foreground = DXGI_DesktopDup_Window | ScreenDC
+    Background = FramePool | PrintWindow
 
 
 MaaWin32InputMethod = ctypes.c_uint64
@@ -301,21 +323,25 @@ class MaaWin32InputMethodEnum(IntEnum):
 
     Different applications process input differently, there is no universal solution.
 
-    | Method                       | Compatibility | Require Admin | Seize Mouse | Background Support | Notes                                                       |
-    |------------------------------|---------------|---------------|--------------|--------------------|-------------------------------------------------------------|
+    | Method                       | Compatibility | Require Admin | Seize Mouse  | Background Support | Notes                                                       |
+    |------------------------------|---------------|---------------|--------------|--------------------|------------------------------------------------------------- |
     | Seize                        | High          | No            | Yes          | No                 |                                                             |
     | SendMessage                  | Medium        | Maybe         | No           | Yes                |                                                             |
     | PostMessage                  | Medium        | Maybe         | No           | Yes                |                                                             |
     | LegacyEvent                  | Low           | No            | Yes          | No                 |                                                             |
     | PostThreadMessage            | Low           | Maybe         | No           | Yes                |                                                             |
-    | SendMessageWithCursorPos     | Medium        | Maybe         | Briefly      | Yes                | Designed for apps that check real cursor position           |
-    | PostMessageWithCursorPos     | Medium        | Maybe         | Briefly      | Yes                | Designed for apps that check real cursor position           |
+    | SendMessageWithCursorPos     | Medium        | Maybe         | Briefly      | Yes                | Moves cursor to target position, then restores              |
+    | PostMessageWithCursorPos     | Medium        | Maybe         | Briefly      | Yes                | Moves cursor to target position, then restores              |
+    | SendMessageWithWindowPos     | Medium        | Maybe         | No           | Yes                | Moves window to align target with cursor, then restores     |
+    | PostMessageWithWindowPos     | Medium        | Maybe         | No           | Yes                | Moves window to align target with cursor, then restores     |
 
     Note:
     - Admin rights mainly depend on the target application's privilege level.
       If the target runs as admin, MaaFramework should also run as admin for compatibility.
     - "WithCursorPos" methods briefly move the cursor to target position, send message,
       then restore cursor position. This "briefly" seizes the mouse but won't block user operations.
+    - "WithWindowPos" methods briefly move the window so the target aligns with the current cursor
+      position, send message, then restore the window position. The cursor is not moved.
     """
 
     Null = 0
@@ -327,10 +353,52 @@ class MaaWin32InputMethodEnum(IntEnum):
     PostThreadMessage = 1 << 4
     SendMessageWithCursorPos = 1 << 5
     PostMessageWithCursorPos = 1 << 6
+    SendMessageWithWindowPos = 1 << 7
+    PostMessageWithWindowPos = 1 << 8
 
 
-# No bitwise OR, just set it
-MaaDbgControllerType = ctypes.c_uint64
+MaaMacOSScreencapMethod = ctypes.c_uint64
+
+
+class MaaMacOSScreencapMethodEnum(IntEnum):
+    """
+    MacOS screencap method.
+
+    No bitwise OR, select ONE method only.
+
+    No default value. Client should choose one as default.
+
+    | Method          | Speed     | Compatibility | Background Support | Notes                  |
+    |-----------------|-----------|---------------|--------------------|------------------------|
+    | ScreenCaptureKit| Very Fast | High          | Yes                | Requires macOS 12.3+   |
+    """
+
+    Null = 0
+
+    ScreenCaptureKit = 1
+
+
+MaaMacOSInputMethod = ctypes.c_uint64
+
+
+class MaaMacOSInputMethodEnum(IntEnum):
+    """
+    MacOS input method.
+
+    No bitwise OR, select ONE method only.
+
+    No default value. Client should choose one as default.
+
+    | Method      | Compatibility | Background Support | Notes                      |
+    |-------------|---------------|--------------------|----------------------------|
+    | GlobalEvent | High          | No                 | Global event injection     |
+    | PostToPid   | Medium        | Yes                | Post event to specific PID |
+    """
+
+    Null = 0
+
+    GlobalEvent = 1
+    PostToPid = 1 << 1
 
 # No bitwise OR, just set it
 MaaGamepadType = ctypes.c_uint64
@@ -426,12 +494,6 @@ class MaaControllerFeatureEnum(IntEnum):
     UseKeyboardDownAndUpInsteadOfClick = 1 << 1
 
 
-class MaaDbgControllerTypeEnum(IntEnum):
-    Null = 0
-
-    CarouselImage = 1
-    ReplayRecording = 1 << 1
-
 
 FUNCTYPE = ctypes.WINFUNCTYPE if (platform.system() == "Windows") else ctypes.CFUNCTYPE
 
@@ -470,6 +532,12 @@ MaaToolkitAdbDeviceListHandle = ctypes.c_void_p
 MaaToolkitAdbDeviceHandle = ctypes.c_void_p
 MaaToolkitDesktopWindowListHandle = ctypes.c_void_p
 MaaToolkitDesktopWindowHandle = ctypes.c_void_p
+
+MaaMacOSPermission = ctypes.c_int32
+
+class MaaMacOSPermissionEnum(IntEnum):
+    ScreenCapture = 1
+    Accessibility = 2
 
 MaaAgentClientHandle = ctypes.c_void_p
 
@@ -569,6 +637,28 @@ class MaaCustomControllerCallbacks(ctypes.Structure):
         ctypes.c_int32,
         ctypes.c_void_p,
     )
+    RelativeMoveFunc = FUNCTYPE(
+        MaaBool,
+        ctypes.c_int32,
+        ctypes.c_int32,
+        ctypes.c_void_p,
+    )
+    ShellFunc = FUNCTYPE(
+        MaaBool,
+        ctypes.c_char_p,
+        ctypes.c_int64,
+        ctypes.c_void_p,
+        MaaStringBufferHandle,
+    )
+    InactiveFunc = FUNCTYPE(
+        MaaBool,
+        ctypes.c_void_p,
+    )
+    GetInfoFunc = FUNCTYPE(
+        MaaBool,
+        ctypes.c_void_p,
+        MaaStringBufferHandle,
+    )
     _fields_ = [
         ("connect", ConnectFunc),
         ("connected", ConnectedFunc),
@@ -587,6 +677,10 @@ class MaaCustomControllerCallbacks(ctypes.Structure):
         ("key_down", KeyDownFunc),
         ("key_up", KeyUpFunc),
         ("scroll", ScrollFunc),
+        ("relative_move", RelativeMoveFunc),
+        ("shell", ShellFunc),
+        ("inactive", InactiveFunc),
+        ("get_info", GetInfoFunc),
     ]
 
 
@@ -852,6 +946,7 @@ class RecognitionDetail:
 class ClickActionResult:
     point: Point
     contact: int
+    pressure: int
 
 
 @dataclass
@@ -859,6 +954,7 @@ class LongPressActionResult:
     point: Point
     duration: int
     contact: int
+    pressure: int
 
 
 @dataclass
@@ -870,6 +966,7 @@ class SwipeActionResult:
     only_hover: bool
     starting: int
     contact: int
+    pressure: int
 
 
 @dataclass
@@ -900,6 +997,7 @@ class AppActionResult:
 
 @dataclass
 class ScrollActionResult:
+    point: Point
     dx: int
     dy: int
 
@@ -914,7 +1012,7 @@ class TouchActionResult:
 @dataclass
 class ShellActionResult:
     cmd: str
-    timeout: int
+    shell_timeout: int
     success: bool
     output: str
 
@@ -970,6 +1068,17 @@ class ActionDetail:
 
 
 @dataclass
+class WaitFreezesDetail:
+    wf_id: int
+    name: str
+    phase: str
+    success: bool
+    elapsed_ms: int
+    reco_id_list: List[int]
+    roi: Rect
+
+
+@dataclass
 class NodeDetail:
     node_id: int
     name: str
@@ -978,12 +1087,59 @@ class NodeDetail:
     completed: bool
 
 
-@dataclass
 class TaskDetail:
-    task_id: int
-    entry: str
-    nodes: List[NodeDetail]
-    status: Status
+    """任务详情 / Task detail
+
+    nodes 属性为惰性加载，仅在首次访问时才通过 IPC 获取各节点详情并缓存结果。
+    The nodes property is lazily loaded: node details are fetched via IPC
+    only on the first access and cached thereafter.
+
+    Attributes:
+        task_id: 任务 ID / Task ID
+        entry: 入口节点名 / Entry node name
+        node_id_list: 节点 ID 列表（轻量，无 IPC 开销）/ Node ID list (lightweight, no IPC cost)
+        status: 任务状态 / Task status
+        nodes: 节点详情列表（惰性加载）/ Node detail list (lazily loaded)
+    """
+
+    __slots__ = (
+        "task_id",
+        "entry",
+        "node_id_list",
+        "status",
+        "_node_detail_func",
+        "_nodes",
+    )
+
+    def __init__(
+        self,
+        task_id: int,
+        entry: str,
+        node_id_list: List[int],
+        status: "Status",
+        node_detail_func: Optional[Callable[[int], Optional["NodeDetail"]]] = None,
+    ):
+        self.task_id = task_id
+        self.entry = entry
+        self.node_id_list = node_id_list
+        self.status = status
+        self._node_detail_func = node_detail_func
+        self._nodes: Optional[List[NodeDetail]] = None
+
+    @property
+    def nodes(self) -> List[NodeDetail]:
+        if self._nodes is None:
+            if self._node_detail_func is not None:
+                self._nodes = [self._node_detail_func(nid) for nid in self.node_id_list]
+            else:
+                self._nodes = []
+        return self._nodes
+
+    def __repr__(self) -> str:
+        return (
+            f"TaskDetail(task_id={self.task_id}, entry={self.entry!r}, "
+            f"node_id_list={self.node_id_list}, status={self.status})"
+        )
 
 
 class LoggingLevelEnum(IntEnum):

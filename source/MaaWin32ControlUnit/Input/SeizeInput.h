@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ControlUnit/ControlUnitAPI.h"
+#include "MaaControlUnit/ControlUnitAPI.h"
 
 #include "Base/UnitBase.h"
 #include "MaaUtils/SafeWindows.hpp"
@@ -9,7 +9,7 @@
 
 MAA_CTRL_UNIT_NS_BEGIN
 
-class SeizeInput : public InputBase
+class SeizeInput : public RelativeMoveInput
 {
 public:
     SeizeInput(HWND hwnd, bool block_input = false)
@@ -20,7 +20,7 @@ public:
 
     virtual ~SeizeInput() override;
 
-public: // from InputBase
+public: // from RelativeMoveInput
     virtual MaaControllerFeature get_features() const override;
 
     virtual bool click(int x, int y) override;
@@ -30,6 +30,8 @@ public: // from InputBase
     virtual bool touch_move(int contact, int x, int y, int pressure) override;
     virtual bool touch_up(int contact) override;
 
+    virtual bool relative_move(int dx, int dy) override;
+
     virtual bool click_key(int key) override;
     virtual bool input_text(const std::string& text) override;
 
@@ -38,10 +40,15 @@ public: // from InputBase
 
     virtual bool scroll(int dx, int dy) override;
 
+    virtual void inactive() override;
+
 private:
     void ensure_foreground();
     // 获取 last_pos_，若未设置则返回窗口客户区中心坐标
     std::pair<int, int> get_target_pos() const;
+
+    void check_and_block_input();
+    void unblock_input();
 
     HWND hwnd_ = nullptr;
     const bool block_input_ = false;

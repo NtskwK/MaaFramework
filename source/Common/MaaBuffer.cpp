@@ -272,6 +272,16 @@ MaaBool MaaImageBufferSetRawData(MaaImageBuffer* handle, MaaImageRawData data, i
     return true;
 }
 
+MaaBool MaaImageBufferResize(MaaImageBuffer* handle, int32_t width, int32_t height)
+{
+    if (!handle) {
+        LogError << "handle is null";
+        return 0;
+    }
+
+    return handle->resize(width, height);
+}
+
 MaaImageEncodedData MaaImageBufferGetEncoded(const MaaImageBuffer* handle)
 {
     if (!handle) {
@@ -398,7 +408,7 @@ MaaBool MaaImageListBufferClear(MaaImageListBuffer* handle)
 
 MaaRect* MaaRectCreate()
 {
-    return new MaaRect {};
+    return new MaaRect { };
 }
 
 void MaaRectDestroy(MaaRect* handle)

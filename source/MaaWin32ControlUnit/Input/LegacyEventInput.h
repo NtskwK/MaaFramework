@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ControlUnit/ControlUnitAPI.h"
+#include "MaaControlUnit/ControlUnitAPI.h"
 
 #include "Base/UnitBase.h"
 #include "MaaUtils/SafeWindows.hpp"
@@ -39,8 +39,13 @@ public: // from InputBase
 
     virtual bool scroll(int dx, int dy) override;
 
+    virtual void inactive() override;
+
 private:
     void ensure_foreground();
+
+    void check_and_block_input();
+    void unblock_input();
 
     HWND hwnd_ = nullptr;
     const bool block_input_ = false;

@@ -4,8 +4,8 @@
 #include <ranges>
 #include <unordered_set>
 
-#include "ControlUnit/ControlUnitAPI.h"
 #include "LibraryHolder/ControlUnit.h"
+#include "MaaControlUnit/ControlUnitAPI.h"
 #include "MaaUtils/IOStream/BoostIO.hpp"
 #include "MaaUtils/Logger.h"
 
@@ -96,7 +96,7 @@ std::vector<std::string> AdbDeviceFinder::find_serials_by_adb_command(const std:
 
     if (!control_unit) {
         LogError << "Failed to create control unit";
-        return {};
+        return { };
     }
 
     std::vector<std::string> devices;
@@ -106,7 +106,7 @@ std::vector<std::string> AdbDeviceFinder::find_serials_by_adb_command(const std:
 
     if (!found) {
         LogError << "Failed to find_device";
-        return {};
+        return { };
     }
 
     return devices;
@@ -140,6 +140,30 @@ bool request_waydroid_config(std::shared_ptr<MAA_CTRL_UNIT_NS::AdbControlUnitAPI
     return true;
 }
 
+bool request_avd_config(std::shared_ptr<MAA_CTRL_UNIT_NS::AdbControlUnitAPI> control_unit, AdbDevice& device)
+{
+    if (!control_unit) {
+        return false;
+    }
+
+    if (!device.serial.starts_with("emulator-")) {
+        return false;
+    }
+
+    std::string output;
+    if (!control_unit->shell("getprop ro.product.model", output)) {
+        return false;
+    }
+    if (!output.starts_with("Android SDK") && !output.starts_with("sdk_")) {
+        return false;
+    }
+
+    device.config["extras"]["avd"]["enable"] = true;
+
+    LogInfo << "AVDExtras enabled for" << VAR(device);
+    return true;
+}
+
 std::optional<AdbDevice>
     AdbDeviceFinder::try_device(const std::filesystem::path& adb_path, const std::string& serial, const Emulator& emulator) const
 {
@@ -170,9 +194,11 @@ std::optional<AdbDevice>
     device.serial = serial;
     device.screencap_methods = MaaAdbScreencapMethod_Default;
     device.input_methods = MaaAdbInputMethod_Default;
-    device.config = {};
+    device.config = { };
 
     if (request_waydroid_config(control_unit, device)) {
+    }
+    else if (request_avd_config(control_unit, device)) {
     }
     // else if (request_xxx_config(control_unit, device)) {
     // }
@@ -235,7 +261,7 @@ std::filesystem::path AdbDeviceFinder::get_emulator_adb_path(const EmulatorConst
 {
     auto path_opt = get_process_path(pid);
     if (!path_opt) {
-        return {};
+        return { };
     }
     auto dir = path_opt->parent_path();
 
@@ -246,7 +272,7 @@ std::filesystem::path AdbDeviceFinder::get_emulator_adb_path(const EmulatorConst
         }
         return std::filesystem::canonical(adb_path);
     }
-    return {};
+    return { };
 }
 
 MAA_TOOLKIT_NS_END
